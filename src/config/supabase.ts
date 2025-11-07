@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 // 環境変数からSupabase設定を取得
@@ -16,7 +17,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Supabaseクライアントを作成
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: undefined, // Expo SecureStoreを使用する場合は後で設定
+    storage: AsyncStorage, // AsyncStorageでセッションを永続化
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
