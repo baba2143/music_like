@@ -8,15 +8,21 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PostCard } from '../../components/post/PostCard';
 import { Post } from '../../types/models';
+import { RootStackParamList } from '../../navigation/RootNavigator';
 import { mockPosts } from '../../utils/mockData';
 import { Colors, Spacing, Typography } from '../../config/theme';
 
+type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 export const HomeScreen: React.FC = () => {
+  const navigation = useNavigation<HomeScreenNavigationProp>();
   const [posts, setPosts] = useState<Post[]>(mockPosts);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // リフレッシュ処理
   const onRefresh = useCallback(async () => {
@@ -44,9 +50,12 @@ export const HomeScreen: React.FC = () => {
   }, []);
 
   // コメントボタン
-  const handleComment = useCallback((postId: string) => {
-    Alert.alert('準備中', 'コメント機能は準備中です');
-  }, []);
+  const handleComment = useCallback(
+    (postId: string) => {
+      navigation.navigate('PostDetail', { postId });
+    },
+    [navigation]
+  );
 
   // 保存ボタン
   const handleSave = useCallback((postId: string) => {
@@ -63,17 +72,21 @@ export const HomeScreen: React.FC = () => {
   }, []);
 
   // ユーザープロフィール表示
-  const handlePressUser = useCallback((userId: string) => {
+  const handlePressUser = useCallback((_userId: string) => {
     Alert.alert('準備中', 'ユーザープロフィール画面は準備中です');
   }, []);
 
   // 投稿詳細表示
-  const handlePressPost = useCallback((postId: string) => {
-    Alert.alert('準備中', '投稿詳細画面は準備中です');
-  }, []);
+  const handlePressPost = useCallback(
+    (postId: string) => {
+      navigation.navigate('PostDetail', { postId });
+    },
+    [navigation]
+  );
 
   // リストのアイテムレンダリング
   const renderItem = useCallback(
+    // eslint-disable-next-line react/no-unused-prop-types
     ({ item }: { item: Post }) => (
       <PostCard
         post={item}
@@ -137,19 +150,19 @@ export const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.gray50,
+    backgroundColor: '#000000', // 真っ黒背景
   },
   header: {
-    backgroundColor: Colors.white,
+    backgroundColor: '#000000', // 真っ黒背景
     paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.base,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.gray200,
+    borderBottomColor: '#2A2A2A', // 暗いボーダー
   },
   headerTitle: {
     fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
-    color: Colors.primary,
+    color: Colors.white, // 白文字
   },
   listContent: {
     paddingVertical: Spacing.sm,
@@ -163,12 +176,12 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: Typography.fontSize.md,
     fontWeight: Typography.fontWeight.semiBold,
-    color: Colors.gray700,
+    color: Colors.white, // 白文字
     marginBottom: Spacing.xs,
   },
   emptySubtext: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.gray500,
+    color: '#808080', // グレー文字
   },
   footer: {
     paddingVertical: Spacing.base,

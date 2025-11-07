@@ -28,6 +28,7 @@ module.exports = {
     'react/prop-types': 'off', // TypeScriptで型チェックするため
     'react/require-default-props': 'off', // TypeScriptのoptionalで十分
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-use-before-define': ['error', { variables: false }], // StyleSheet.createをコンポーネント後に許可
     'import/prefer-default-export': 'off', // Named exportを推奨
     'no-console': ['warn', { allow: ['warn', 'error'] }],
     'react/jsx-props-no-spreading': 'off', // Spread propsを許可
@@ -38,6 +39,7 @@ module.exports = {
         unnamedComponents: 'arrow-function',
       },
     ],
+    'react/style-prop-object': ['error', { allow: ['StatusBar'] }], // Expo StatusBarを許可
   },
   settings: {
     react: {

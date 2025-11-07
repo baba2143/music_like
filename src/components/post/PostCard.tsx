@@ -41,7 +41,8 @@ export const PostCard: React.FC<PostCardProps> = ({
             {post.playlistTitle}
           </Text>
           <Text style={styles.playlistMeta}>
-            {post.playlistTrackCount}曲 • {post.playlistService === 'spotify' ? 'Spotify' : 'Apple Music'}
+            {post.playlistTrackCount}曲 •{' '}
+            {post.playlistService === 'spotify' ? 'Spotify' : 'Apple Music'}
           </Text>
           <TouchableOpacity style={styles.openButton} onPress={handleOpenPlaylist}>
             <Text style={styles.openButtonText}>
@@ -109,8 +110,8 @@ export const PostCard: React.FC<PostCardProps> = ({
       {/* ハッシュタグ */}
       {post.hashtags && post.hashtags.length > 0 && (
         <View style={styles.hashtags}>
-          {post.hashtags.map((tag, index) => (
-            <Text key={index} style={styles.hashtag}>
+          {post.hashtags.map((tag) => (
+            <Text key={tag} style={styles.hashtag}>
               {tag}{' '}
             </Text>
           ))}
@@ -156,10 +157,9 @@ export const PostCard: React.FC<PostCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.white,
+    backgroundColor: '#1A1A1A', // 濃いグレー背景
     marginBottom: Spacing.md,
     paddingVertical: Spacing.base,
-    ...Shadow.small,
   },
   header: {
     flexDirection: 'row',
@@ -174,11 +174,11 @@ const styles = StyleSheet.create({
   username: {
     fontSize: Typography.fontSize.base,
     fontWeight: Typography.fontWeight.semiBold,
-    color: Colors.gray900,
+    color: Colors.white, // 白文字
   },
   timestamp: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.gray500,
+    color: '#808080', // グレー文字
     marginTop: 2,
   },
   menuButton: {
@@ -186,22 +186,21 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: Typography.fontSize.xl,
-    color: Colors.gray600,
+    color: '#B0B0B0', // 明るいグレー
   },
   caption: {
     fontSize: Typography.fontSize.base,
-    color: Colors.gray900,
+    color: Colors.white, // 白文字
     lineHeight: Typography.fontSize.base * Typography.lineHeight.normal,
     paddingHorizontal: Spacing.base,
     marginBottom: Spacing.md,
   },
   playlistCard: {
-    backgroundColor: Colors.gray50,
+    backgroundColor: '#2A2A2A', // さらに濃いグレー
     borderRadius: BorderRadius.base,
     padding: Spacing.md,
     marginHorizontal: Spacing.base,
     marginBottom: Spacing.sm,
-    ...Shadow.small,
   },
   playlistThumbnail: {
     width: '100%',
@@ -215,14 +214,14 @@ const styles = StyleSheet.create({
   playlistTitle: {
     fontSize: Typography.fontSize.md,
     fontWeight: Typography.fontWeight.bold,
-    color: Colors.gray900,
+    color: Colors.white, // 白文字
   },
   playlistMeta: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.gray600,
+    color: '#B0B0B0', // 明るいグレー
   },
   openButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primary, // ピンク
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.base,
     borderRadius: BorderRadius.full,
@@ -236,12 +235,11 @@ const styles = StyleSheet.create({
   },
   trackCard: {
     flexDirection: 'row',
-    backgroundColor: Colors.gray50,
+    backgroundColor: '#2A2A2A', // さらに濃いグレー
     borderRadius: BorderRadius.base,
     padding: Spacing.md,
     marginHorizontal: Spacing.base,
     marginBottom: Spacing.sm,
-    ...Shadow.small,
   },
   trackThumbnail: {
     width: 80,
@@ -256,12 +254,12 @@ const styles = StyleSheet.create({
   trackTitle: {
     fontSize: Typography.fontSize.md,
     fontWeight: Typography.fontWeight.bold,
-    color: Colors.gray900,
+    color: Colors.white, // 白文字
     marginBottom: Spacing.xs,
   },
   trackArtist: {
     fontSize: Typography.fontSize.base,
-    color: Colors.gray600,
+    color: '#B0B0B0', // 明るいグレー
   },
   hashtags: {
     flexDirection: 'row',
@@ -271,7 +269,7 @@ const styles = StyleSheet.create({
   },
   hashtag: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.primary,
+    color: Colors.primary, // ピンク
     marginRight: Spacing.xs,
   },
   footer: {
@@ -294,7 +292,7 @@ const styles = StyleSheet.create({
   },
   actionCount: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.gray700,
+    color: '#B0B0B0', // 明るいグレー
     fontWeight: Typography.fontWeight.medium,
   },
 });

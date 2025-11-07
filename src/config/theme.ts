@@ -67,24 +67,24 @@ export const LightTheme = {
 // ダークテーマ
 export const DarkTheme = {
   colors: {
-    primary: Colors.primaryLight,
+    primary: Colors.primary, // ピンク #FF4081
     secondary: Colors.secondaryLight,
     accent: Colors.accentLight,
-    background: '#121212',
-    surface: '#1E1E1E',
-    card: '#2C2C2C',
+    background: '#000000', // 真っ黒
+    surface: '#0A0A0A', // ほぼ黒
+    card: '#1A1A1A', // 濃いグレー
     text: Colors.white,
-    textSecondary: Colors.gray400,
-    textTertiary: Colors.gray500,
-    border: Colors.gray700,
-    divider: Colors.gray800,
+    textSecondary: '#B0B0B0', // 明るいグレー
+    textTertiary: '#808080', // 中間グレー
+    border: '#2A2A2A',
+    divider: '#1A1A1A',
     placeholder: Colors.gray600,
     disabled: Colors.gray700,
     error: Colors.error,
     success: Colors.success,
     warning: Colors.warning,
     info: Colors.info,
-    overlay: 'rgba(0, 0, 0, 0.7)',
+    overlay: 'rgba(0, 0, 0, 0.8)',
   },
   dark: true,
 };
@@ -209,8 +209,8 @@ export const Animation = {
   },
 };
 
-// デフォルトテーマ
-export const DefaultTheme = LightTheme;
+// デフォルトテーマ（ダークモード）
+export const DefaultTheme = DarkTheme;
 
 // テーマ型定義
 export type Theme = typeof LightTheme;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Image, StyleSheet, ViewStyle } from 'react-native';
-import { Colors, BorderRadius } from '../../config/theme';
+import { Colors } from '../../config/theme';
 
 interface UserAvatarProps {
   avatarUrl?: string;
@@ -14,11 +14,7 @@ const sizeMap = {
   large: 56,
 };
 
-export const UserAvatar: React.FC<UserAvatarProps> = ({
-  avatarUrl,
-  size = 'medium',
-  style,
-}) => {
+export const UserAvatar: React.FC<UserAvatarProps> = ({ avatarUrl, size = 'medium', style }) => {
   const avatarSize = sizeMap[size];
 
   return (
@@ -32,10 +28,18 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       {avatarUrl ? (
         <Image
           source={{ uri: avatarUrl }}
-          style={[styles.image, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
+          style={[
+            styles.image,
+            { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
+          ]}
         />
       ) : (
-        <View style={[styles.placeholder, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]} />
+        <View
+          style={[
+            styles.placeholder,
+            { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
+          ]}
+        />
       )}
     </View>
   );

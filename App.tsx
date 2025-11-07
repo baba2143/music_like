@@ -4,13 +4,15 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
 
-export default function App() {
+const App: React.FC = () => {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
         <RootNavigator />
-        <StatusBar style="auto" />
+        <StatusBar style="auto" as any />
       </NavigationContainer>
     </SafeAreaProvider>
   );
-}
+};
+
+export default App;

@@ -3,12 +3,13 @@ import Constants from 'expo-constants';
 
 // 環境変数からSupabase設定を取得
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.SUPABASE_URL || '';
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY || '';
+const supabaseAnonKey =
+  Constants.expoConfig?.extra?.supabaseAnonKey || process.env.SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     'Supabase URL and Anon Key are required. ' +
-    'Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.'
+      'Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file.'
   );
 }
 
