@@ -1,39 +1,47 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProgressBar } from '../../components/profile/ProgressBar';
-import { TagInput } from '../../components/profile/TagInput';
-import { FormSelect } from '../../components/profile/FormSelect';
-import { RadioGroup } from '../../components/profile/RadioGroup';
-import { FanDuration, ActivityStyle } from '../../types/profile';
+import { FormInput } from '../../components/profile/FormInput';
 import { Colors, Typography, Spacing } from '../../config/theme';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import { useProfileSetup } from '../../contexts/ProfileSetupContext';
+
+type ProfileSetupStep2NavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'ProfileSetupStep2'
+>;
 
 export const ProfileSetupStep2Screen: React.FC = () => {
-  const [favoriteGroups, setFavoriteGroups] = useState<string[]>([]);
-  const [favoriteMembers, setFavoriteMembers] = useState<string[]>([]);
-  const [fanDuration, setFanDuration] = useState<FanDuration>();
-  const [activityStyle, setActivityStyle] = useState<ActivityStyle>();
+  const navigation = useNavigation<ProfileSetupStep2NavigationProp>();
+  const { profileData, updateProfileData } = useProfileSetup();
+
+  const [oshiGroup, setOshiGroup] = useState(profileData.oshiGroup);
+  const [oshiMember, setOshiMember] = useState(profileData.oshiMember);
 
   const handleBack = () => {
-    Alert.alert('準備中', 'Step 1への遷移は準備中です');
+    navigation.goBack();
   };
 
   const handleNext = () => {
-    // バリデーション
-    if (favoriteGroups.length === 0) {
-      Alert.alert('確認', '好きなグループ・アーティストを最低1つ入力してください');
-      return;
-    }
+    // データを保存して次のステップへ
+    updateProfileData({
+      oshiGroup: oshiGroup.trim(),
+      oshiMember: oshiMember.trim(),
+    });
 
-    // 次のステップへ
-    Alert.alert('準備中', 'Step 3への遷移は準備中です');
+    navigation.navigate('ProfileSetupStep3');
   };
 
-  const activityStyleOptions = [
-    { label: 'ライブ重視', value: 'ライブ重視' as ActivityStyle },
-    { label: 'CD・グッズ重視', value: 'CD・グッズ重視' as ActivityStyle },
-    { label: 'SNS・配信重視', value: 'SNS・配信重視' as ActivityStyle },
-    { label: 'バランス型', value: 'バランス型' as ActivityStyle },
-  ];
+  const handleSkip = () => {
+    // Step3へスキップ
+    updateProfileData({
+      oshiGroup: oshiGroup.trim(),
+      oshiMember: oshiMember.trim(),
+    });
+    navigation.navigate('ProfileSetupStep3');
+  };
 
   return (
     <View style={styles.container}>
@@ -47,44 +55,27 @@ export const ProfileSetupStep2Screen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* タイトル */}
-        <Text style={styles.title}>音楽の趣味を教えて</Text>
-        <Text style={styles.subtitle}>あなたの好きな音楽について教えてください</Text>
+        <Text style={styles.title}>推しを教えて</Text>
+        <Text style={styles.subtitle}>あなたの好きなグループやメンバーを教えてください（任意）</Text>
 
         {/* フォーム */}
         <View style={styles.form}>
-          {/* 好きなグループ・アーティスト */}
-          <TagInput
-            label="好きなグループ・アーティスト"
-            required
-            placeholder="例: 〇〇"
-            values={favoriteGroups}
-            onChange={setFavoriteGroups}
-            maxTags={10}
+          {/* 推しグループ */}
+          <FormInput
+            label="推しグループ・アーティスト"
+            placeholder="例: 乃木坂46"
+            value={oshiGroup}
+            onChangeText={setOshiGroup}
+            maxLength={50}
           />
 
           {/* 推しメンバー */}
-          <TagInput
+          <FormInput
             label="推しメンバー"
-            placeholder="例: △△"
-            values={favoriteMembers}
-            onChange={setFavoriteMembers}
-            maxTags={10}
-          />
-
-          {/* ファン歴 */}
-          <FormSelect<FanDuration>
-            label="ファン歴"
-            value={fanDuration}
-            placeholder="選択してください"
-            onPress={() => Alert.alert('準備中', 'ファン歴選択は準備中です')}
-          />
-
-          {/* 活動スタイル */}
-          <RadioGroup<ActivityStyle>
-            label="活動スタイル"
-            options={activityStyleOptions}
-            value={activityStyle}
-            onChange={setActivityStyle}
+            placeholder="例: 山下美月"
+            value={oshiMember}
+            onChangeText={setOshiMember}
+            maxLength={50}
           />
         </View>
       </ScrollView>
@@ -93,6 +84,10 @@ export const ProfileSetupStep2Screen: React.FC = () => {
       <View style={styles.footer}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
           <Text style={styles.backButtonText}>戻る</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.skipButton} onPress={handleSkip} activeOpacity={0.7}>
+          <Text style={styles.skipButtonText}>スキップ</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.8}>
@@ -132,7 +127,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
     borderTopWidth: 1,
@@ -152,8 +147,22 @@ const styles = StyleSheet.create({
     fontWeight: Typography.fontWeight.semiBold,
     color: '#808080',
   },
+  skipButton: {
+    flex: 1,
+    paddingVertical: Spacing.base,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipButtonText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semiBold,
+    color: '#808080',
+  },
   nextButton: {
-    flex: 2,
+    flex: 1,
     paddingVertical: Spacing.base,
     borderRadius: 8,
     backgroundColor: Colors.primary,

@@ -1,47 +1,78 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProgressBar } from '../../components/profile/ProgressBar';
-import { FormInput } from '../../components/profile/FormInput';
-import { FormSelect } from '../../components/profile/FormSelect';
-import { CheckboxGroup } from '../../components/profile/CheckboxGroup';
-import { PostFrequency } from '../../types/profile';
+import { TagInput } from '../../components/profile/TagInput';
 import { Colors, Typography, Spacing } from '../../config/theme';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import { useProfileSetup } from '../../contexts/ProfileSetupContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { createUserProfile } from '../../services/userService';
+
+type ProfileSetupStep3NavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'ProfileSetupStep3'
+>;
 
 export const ProfileSetupStep3Screen: React.FC = () => {
-  const [postFrequency, setPostFrequency] = useState<PostFrequency>();
-  const [introduction, setIntroduction] = useState('');
-  const [profileSettings, setProfileSettings] = useState<string[]>([
-    'isProfilePublic',
-    'showAge',
-    'showLocation',
-  ]);
-  const [notificationSettings, setNotificationSettings] = useState<string[]>([
-    'notifyLikes',
-    'notifyComments',
-    'notifyFollows',
-    'notifyMessages',
-  ]);
+  const navigation = useNavigation<ProfileSetupStep3NavigationProp>();
+  const { profileData, updateProfileData, resetProfileData } = useProfileSetup();
+  const { user } = useAuth();
+
+  const [favoriteGenres, setFavoriteGenres] = useState(profileData.favoriteGenres);
+  const [favoriteArtists, setFavoriteArtists] = useState(profileData.favoriteArtists);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleBack = () => {
-    Alert.alert('準備中', 'Step 2への遷移は準備中です');
+    navigation.goBack();
   };
 
-  const handleComplete = () => {
-    Alert.alert('準備中', 'プロフィール完成処理は準備中です');
+  const handleComplete = async () => {
+    if (!user) {
+      Alert.alert('エラー', 'ユーザー情報が取得できませんでした');
+      return;
+    }
+
+    // データを保存
+    updateProfileData({
+      favoriteGenres,
+      favoriteArtists,
+    });
+
+    setIsLoading(true);
+
+    // Supabaseにプロフィールを作成
+    const { data, error } = await createUserProfile({
+      id: user.id,
+      username: profileData.username,
+      displayName: profileData.displayName,
+      bio: profileData.bio || undefined,
+      oshiGroup: profileData.oshiGroup || undefined,
+      oshiMember: profileData.oshiMember || undefined,
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      Alert.alert('エラー', 'プロフィールの作成に失敗しました。もう一度お試しください。');
+      return;
+    }
+
+    // 成功したらProfileSetupデータをリセット
+    resetProfileData();
+
+    // メイン画面へ遷移
+    navigation.navigate('MainTabs');
   };
-
-  const profileSettingsOptions = [
-    { label: 'プロフィールを公開する', value: 'isProfilePublic' },
-    { label: '年齢を表示する', value: 'showAge' },
-    { label: '地域を表示する', value: 'showLocation' },
-  ];
-
-  const notificationSettingsOptions = [
-    { label: 'いいね通知', value: 'notifyLikes' },
-    { label: 'コメント通知', value: 'notifyComments' },
-    { label: 'フォロー通知', value: 'notifyFollows' },
-    { label: 'メッセージ通知', value: 'notifyMessages' },
-  ];
 
   return (
     <View style={styles.container}>
@@ -55,63 +86,53 @@ export const ProfileSetupStep3Screen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* タイトル */}
-        <Text style={styles.title}>あと少しで完成！</Text>
-        <Text style={styles.subtitle}>最後に詳細設定をしましょう</Text>
+        <Text style={styles.title}>音楽の好みを教えて</Text>
+        <Text style={styles.subtitle}>好きなジャンルやアーティストを登録しましょう（任意）</Text>
 
         {/* フォーム */}
         <View style={styles.form}>
-          {/* 投稿頻度 */}
-          <FormSelect<PostFrequency>
-            label="投稿頻度（任意）"
-            value={postFrequency}
-            placeholder="選択してください"
-            onPress={() => Alert.alert('準備中', '投稿頻度選択は準備中です')}
+          {/* お気に入りジャンル */}
+          <TagInput
+            label="お気に入りジャンル"
+            tags={favoriteGenres}
+            onTagsChange={setFavoriteGenres}
+            placeholder="例: J-POP"
+            maxTags={10}
           />
 
-          {/* 自己紹介 */}
-          <FormInput
-            label="自己紹介（任意）"
-            placeholder="あなたの自己紹介を入力してください"
-            value={introduction}
-            onChangeText={setIntroduction}
-            multiline
-            numberOfLines={4}
-            maxLength={500}
-            style={styles.textArea}
+          {/* お気に入りアーティスト */}
+          <TagInput
+            label="お気に入りアーティスト"
+            tags={favoriteArtists}
+            onTagsChange={setFavoriteArtists}
+            placeholder="例: YOASOBI"
+            maxTags={10}
           />
-
-          {/* プロフィール設定 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>プロフィール設定</Text>
-            <CheckboxGroup
-              label=""
-              options={profileSettingsOptions}
-              values={profileSettings}
-              onChange={setProfileSettings}
-            />
-          </View>
-
-          {/* 通知設定 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>通知設定</Text>
-            <CheckboxGroup
-              label=""
-              options={notificationSettingsOptions}
-              values={notificationSettings}
-              onChange={setNotificationSettings}
-            />
-          </View>
         </View>
       </ScrollView>
 
       {/* ボタン */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.7}
+          disabled={isLoading}
+        >
           <Text style={styles.backButtonText}>戻る</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.completeButton} onPress={handleComplete} activeOpacity={0.8}>
-          <Text style={styles.completeButtonText}>完了</Text>
+        <TouchableOpacity
+          style={[styles.completeButton, isLoading && styles.completeButtonDisabled]}
+          onPress={handleComplete}
+          activeOpacity={0.8}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color={Colors.white} />
+          ) : (
+            <Text style={styles.completeButtonText}>完了</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -145,20 +166,6 @@ const styles = StyleSheet.create({
   form: {
     marginTop: Spacing.base,
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-    paddingTop: Spacing.md,
-  },
-  section: {
-    marginTop: Spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: Typography.fontWeight.bold,
-    color: Colors.white,
-    marginBottom: Spacing.md,
-  },
   footer: {
     flexDirection: 'row',
     gap: Spacing.md,
@@ -188,6 +195,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  completeButtonDisabled: {
+    opacity: 0.5,
   },
   completeButtonText: {
     fontSize: Typography.fontSize.base,

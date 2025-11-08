@@ -1,45 +1,111 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProgressBar } from '../../components/profile/ProgressBar';
 import { FormInput } from '../../components/profile/FormInput';
-import { FormSelect } from '../../components/profile/FormSelect';
-import { RadioGroup } from '../../components/profile/RadioGroup';
-import { AgeGroup, Gender, Prefecture } from '../../types/profile';
 import { Colors, Typography, Spacing } from '../../config/theme';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import { useProfileSetup } from '../../contexts/ProfileSetupContext';
+import { checkUsernameAvailability } from '../../services/userService';
+
+type ProfileSetupStep1NavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'ProfileSetupStep1'
+>;
 
 export const ProfileSetupStep1Screen: React.FC = () => {
-  const [nickname, setNickname] = useState('');
-  const [age, setAge] = useState<AgeGroup>();
-  const [gender, setGender] = useState<Gender>();
-  const [prefecture, setPrefecture] = useState<Prefecture>();
-  const [nicknameError, setNicknameError] = useState('');
+  const navigation = useNavigation<ProfileSetupStep1NavigationProp>();
+  const { profileData, updateProfileData } = useProfileSetup();
+
+  const [username, setUsername] = useState(profileData.username);
+  const [displayName, setDisplayName] = useState(profileData.displayName);
+  const [bio, setBio] = useState(profileData.bio);
+
+  const [usernameError, setUsernameError] = useState('');
+  const [displayNameError, setDisplayNameError] = useState('');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+
+  // ユーザー名の重複チェック（デバウンス付き）
+  useEffect(() => {
+    if (!username || username.length < 3) {
+      return;
+    }
+
+    // ユーザー名の形式チェック
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!usernameRegex.test(username)) {
+      setUsernameError('ユーザー名は3-20文字の英数字とアンダースコアのみ使用できます');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setIsCheckingUsername(true);
+      setUsernameError('');
+
+      const { isAvailable, error } = await checkUsernameAvailability(username);
+
+      if (error) {
+        setUsernameError('ユーザー名の確認に失敗しました');
+      } else if (!isAvailable) {
+        setUsernameError('このユーザー名は既に使用されています');
+      }
+
+      setIsCheckingUsername(false);
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [username]);
 
   const handleNext = () => {
     // バリデーション
-    if (!nickname.trim()) {
-      setNicknameError('ニックネームを入力してください');
+    if (!username.trim()) {
+      setUsernameError('ユーザー名を入力してください');
       return;
     }
 
-    if (nickname.trim().length < 2) {
-      setNicknameError('ニックネームは2文字以上で入力してください');
+    if (!displayName.trim()) {
+      setDisplayNameError('表示名を入力してください');
       return;
     }
 
-    // 次のステップへ
-    Alert.alert('準備中', 'Step 2への遷移は準備中です');
+    if (displayName.trim().length < 2) {
+      setDisplayNameError('表示名は2文字以上で入力してください');
+      return;
+    }
+
+    if (usernameError || isCheckingUsername) {
+      return;
+    }
+
+    // データを保存して次のステップへ
+    updateProfileData({
+      username: username.trim(),
+      displayName: displayName.trim(),
+      bio: bio.trim(),
+    });
+
+    navigation.navigate('ProfileSetupStep2');
   };
 
   const handleSkip = () => {
-    Alert.alert('準備中', 'スキップ機能は準備中です');
+    // Step2へスキップ（最低限のデータは入力必須）
+    if (username.trim() && displayName.trim() && !usernameError && !isCheckingUsername) {
+      updateProfileData({
+        username: username.trim(),
+        displayName: displayName.trim(),
+        bio: bio.trim(),
+      });
+      navigation.navigate('ProfileSetupStep2');
+    }
   };
-
-  const genderOptions = [
-    { label: '男性', value: '男性' as Gender },
-    { label: '女性', value: '女性' as Gender },
-    { label: 'その他', value: 'その他' as Gender },
-    { label: '回答しない', value: '回答しない' as Gender },
-  ];
 
   return (
     <View style={styles.container}>
@@ -58,42 +124,57 @@ export const ProfileSetupStep1Screen: React.FC = () => {
 
         {/* フォーム */}
         <View style={styles.form}>
-          {/* ニックネーム */}
+          {/* ユーザー名 */}
+          <View style={styles.formGroup}>
+            <FormInput
+              label="ユーザー名"
+              required
+              placeholder="例: music_lover"
+              value={username}
+              onChangeText={(text) => {
+                setUsername(text.toLowerCase());
+                setUsernameError('');
+              }}
+              error={usernameError}
+              maxLength={20}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {isCheckingUsername && (
+              <View style={styles.checkingContainer}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={styles.checkingText}>確認中...</Text>
+              </View>
+            )}
+            {!isCheckingUsername && username.length >= 3 && !usernameError && (
+              <Text style={styles.successText}>✓ 利用可能です</Text>
+            )}
+            <Text style={styles.helpText}>@{username || 'username'} として表示されます</Text>
+          </View>
+
+          {/* 表示名 */}
           <FormInput
-            label="ニックネーム"
+            label="表示名"
             required
             placeholder="例: 音楽太郎"
-            value={nickname}
+            value={displayName}
             onChangeText={(text) => {
-              setNickname(text);
-              setNicknameError('');
+              setDisplayName(text);
+              setDisplayNameError('');
             }}
-            error={nicknameError}
-            maxLength={20}
+            error={displayNameError}
+            maxLength={50}
           />
 
-          {/* 年齢 */}
-          <FormSelect<AgeGroup>
-            label="年齢"
-            value={age}
-            placeholder="選択してください"
-            onPress={() => Alert.alert('準備中', '年齢選択は準備中です')}
-          />
-
-          {/* 性別 */}
-          <RadioGroup<Gender>
-            label="性別"
-            options={genderOptions}
-            value={gender}
-            onChange={setGender}
-          />
-
-          {/* 地域 */}
-          <FormSelect<Prefecture>
-            label="地域"
-            value={prefecture}
-            placeholder="選択してください"
-            onPress={() => Alert.alert('準備中', '地域選択は準備中です')}
+          {/* 自己紹介 */}
+          <FormInput
+            label="自己紹介"
+            placeholder="例: 音楽が大好きです！よろしくお願いします"
+            value={bio}
+            onChangeText={setBio}
+            maxLength={200}
+            multiline
+            numberOfLines={4}
           />
         </View>
       </ScrollView>
@@ -138,6 +219,29 @@ const styles = StyleSheet.create({
   },
   form: {
     marginTop: Spacing.base,
+  },
+  formGroup: {
+    marginBottom: Spacing.lg,
+  },
+  checkingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  checkingText: {
+    fontSize: Typography.fontSize.sm,
+    color: '#808080',
+    marginLeft: Spacing.xs,
+  },
+  successText: {
+    fontSize: Typography.fontSize.sm,
+    color: '#4CAF50',
+    marginTop: Spacing.xs,
+  },
+  helpText: {
+    fontSize: Typography.fontSize.sm,
+    color: '#808080',
+    marginTop: Spacing.xs,
   },
   footer: {
     flexDirection: 'row',
