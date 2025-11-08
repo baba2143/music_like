@@ -17,53 +17,29 @@ Music LikeアプリケーションのSupabaseバックエンド設定手順で�
 4. `migrations/001_initial_schema.sql`の内容をコピー&ペースト
 5. 「Run」ボタンをクリックして実行
 
-### 2. Storageバケットの作成
+### 2. Storageバケットの作成とポリシー設定
 
-#### avatarsバケット（プロフィール画像用）
+#### ステップ2-1: バケットの作成
 
 1. 左メニューから「Storage」を選択
 2. 「New bucket」をクリック
-3. 以下の設定でバケットを作成：
+3. **avatarsバケット**を作成：
    - Name: `avatars`
    - Public bucket: ✅ チェック
+   - 「Create bucket」をクリック
 
-4. 作成したバケットを選択
-5. 「Policies」タブで以下のポリシーを追加：
+4. 同様に**postsバケット**を作成：
+   - Name: `posts`
+   - Public bucket: ✅ チェック
+   - 「Create bucket」をクリック
 
-```sql
--- 誰でも閲覧可能
-CREATE POLICY "Anyone can view avatars"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'avatars');
+#### ステップ2-2: ポリシーの適用
 
--- ユーザーは自分のアバターをアップロード可能
-CREATE POLICY "Users can upload their own avatar"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'avatars' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
+1. 左メニューから「SQL Editor」を選択
+2. `migrations/002_storage_policies.sql`の内容をコピー&ペースト
+3. 「Run」ボタンをクリックして実行
 
--- ユーザーは自分のアバターを更新可能
-CREATE POLICY "Users can update their own avatar"
-  ON storage.objects FOR UPDATE
-  USING (
-    bucket_id = 'avatars' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-
--- ユーザーは自分のアバターを削除可能
-CREATE POLICY "Users can delete their own avatar"
-  ON storage.objects FOR DELETE
-  USING (
-    bucket_id = 'avatars' AND
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
-```
-
-#### postsバケット（投稿画像用）
-
-同様の手順で`posts`バケットを作成し、同じポリシーを適用（`bucket_id = 'posts'`に変更）
+**注意**: ポリシーSQLを実行する前に、必ず上記の2つのバケット（avatars, posts）を作成してください。
 
 ### 3. 認証設定
 
