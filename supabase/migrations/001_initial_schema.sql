@@ -28,23 +28,23 @@ CREATE INDEX idx_users_username ON public.users(username);
 CREATE TABLE public.posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  content_type TEXT NOT NULL CHECK (content_type IN ('song', 'playlist')),
+  content_type TEXT NOT NULL CHECK (content_type IN ('playlist', 'track', 'text')),
   caption TEXT,
-
-  -- 曲情報（content_type = 'song'の場合）
-  song_title TEXT,
-  song_artist TEXT,
-  song_spotify_id TEXT,
-  song_apple_music_id TEXT,
-  song_album_art_url TEXT,
+  hashtags TEXT[] DEFAULT '{}',
 
   -- プレイリスト情報（content_type = 'playlist'の場合）
+  playlist_url TEXT,
   playlist_title TEXT,
+  playlist_thumbnail TEXT,
   playlist_track_count INTEGER,
   playlist_service TEXT CHECK (playlist_service IN ('spotify', 'apple_music', 'youtube_music')),
-  playlist_spotify_id TEXT,
-  playlist_apple_music_id TEXT,
-  playlist_image_url TEXT,
+
+  -- 楽曲情報（content_type = 'track'の場合）
+  track_title TEXT,
+  track_artist TEXT,
+  track_album TEXT,
+  track_thumbnail TEXT,
+  track_url TEXT,
 
   -- エンゲージメント統計
   likes_count INTEGER DEFAULT 0 NOT NULL,
