@@ -13,6 +13,7 @@ import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { PostDetailScreen } from '../screens/post/PostDetailScreen';
 import { CreatePostScreen } from '../screens/post/CreatePostScreen';
+import { EditPostScreen } from '../screens/post/EditPostScreen';
 import { Colors, Typography } from '../config/theme';
 
 // ルートスタック画面の型定義
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   PostDetail: { postId: string };
   CreatePost: undefined;
+  EditPost: { postId: string };
   EditProfile: undefined;
 };
 
@@ -136,6 +138,7 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+      <Stack.Screen name="EditPost" component={EditPostScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
     </Stack.Navigator>
   );
