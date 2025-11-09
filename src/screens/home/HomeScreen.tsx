@@ -24,11 +24,15 @@ export const HomeScreen: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  // 投稿を取得
+  // 初回投稿を取得
   const fetchPosts = useCallback(async () => {
     try {
       console.log('投稿を取得中...');
+      setLoading(true);
       const { data, error } = await getFeedPosts(user?.id, 20);
 
       if (error) {
@@ -40,12 +44,45 @@ export const HomeScreen: React.FC = () => {
       if (data) {
         console.log('取得した投稿数:', data.posts.length);
         setPosts(data.posts);
+        setCursor(data.nextCursor);
+        setHasMore(data.hasMore);
       }
     } catch (error) {
       console.error('Failed to fetch posts:', error);
       window.alert('エラー: 予期しないエラーが発生しました');
+    } finally {
+      setLoading(false);
     }
   }, [user]);
+
+  // 追加投稿を取得（無限スクロール）
+  const loadMorePosts = useCallback(async () => {
+    if (!hasMore || loadingMore || !cursor) {
+      return;
+    }
+
+    try {
+      console.log('追加投稿を取得中... cursor:', cursor);
+      setLoadingMore(true);
+      const { data, error } = await getFeedPosts(user?.id, 20, cursor);
+
+      if (error) {
+        console.error('追加投稿取得エラー:', error);
+        return;
+      }
+
+      if (data) {
+        console.log('取得した追加投稿数:', data.posts.length);
+        setPosts((prevPosts) => [...prevPosts, ...data.posts]);
+        setCursor(data.nextCursor);
+        setHasMore(data.hasMore);
+      }
+    } catch (error) {
+      console.error('Failed to load more posts:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [user, cursor, hasMore, loadingMore]);
 
   // 初回ロード
   useEffect(() => {
@@ -55,6 +92,8 @@ export const HomeScreen: React.FC = () => {
   // リフレッシュ処理
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setCursor(null);
+    setHasMore(true);
     await fetchPosts();
     setRefreshing(false);
   }, [fetchPosts]);
@@ -148,6 +187,11 @@ export const HomeScreen: React.FC = () => {
     [navigation]
   );
 
+  // 投稿削除後のハンドラ
+  const handlePostDeleted = useCallback((postId: string) => {
+    setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
+  }, []);
+
   // リストのアイテムレンダリング
   const renderItem = useCallback(
     // eslint-disable-next-line react/no-unused-prop-types
@@ -159,9 +203,10 @@ export const HomeScreen: React.FC = () => {
         onSave={handleSave}
         onPressUser={handlePressUser}
         onPressPost={handlePressPost}
+        onPostDeleted={() => handlePostDeleted(item.id)}
       />
     ),
-    [handleLike, handleComment, handleSave, handlePressUser, handlePressPost]
+    [handleLike, handleComment, handleSave, handlePressUser, handlePressPost, handlePostDeleted]
   );
 
   // 空の状態
@@ -174,7 +219,7 @@ export const HomeScreen: React.FC = () => {
 
   // フッター（ローディング）
   const renderFooter = () => {
-    if (!loading) return null;
+    if (!loadingMore) return null;
     return (
       <View style={styles.footer}>
         <ActivityIndicator size="small" color={Colors.primary} />
@@ -205,6 +250,8 @@ export const HomeScreen: React.FC = () => {
         }
         ListEmptyComponent={renderEmpty}
         ListFooterComponent={renderFooter}
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
         showsVerticalScrollIndicator={false}
       />
     </View>

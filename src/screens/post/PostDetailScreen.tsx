@@ -7,11 +7,15 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Post, Comment } from '../../types/models';
 import { CommentCard } from '../../components/post/CommentCard';
 import { CommentInput } from '../../components/post/CommentInput';
+import { PostMenu } from '../../components/post/PostMenu';
+import { DeleteConfirmDialog } from '../../components/post/DeleteConfirmDialog';
 import { Colors, Typography, Spacing } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -20,15 +24,16 @@ import {
   createComment,
   toggleLike,
   toggleSave,
+  deletePost,
 } from '../../services/postService';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { getRelativeTime } from '../../utils/mockData';
-import { Linking } from 'react-native';
 
 type PostDetailScreenRouteProp = RouteProp<RootStackParamList, 'PostDetail'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const PostDetailScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
   const route = useRoute<PostDetailScreenRouteProp>();
   const { user } = useAuth();
   const { postId } = route.params;
@@ -38,6 +43,11 @@ export const PostDetailScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isOwnPost = user?.id === post?.userId;
 
   // 投稿データを取得
   const fetchPost = useCallback(async () => {
@@ -190,6 +200,35 @@ export const PostDetailScreen: React.FC = () => {
     }
   };
 
+  const handleEdit = () => {
+    if (!post) return;
+    navigation.navigate('EditPost', { postId: post.id });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!user || !post) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await deletePost(post.id);
+
+      if (error) {
+        console.error('投稿削除エラー:', error);
+        window.alert('エラー: 投稿の削除に失敗しました');
+        return;
+      }
+
+      setDeleteDialogVisible(false);
+      window.alert('投稿を削除しました');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -214,7 +253,17 @@ export const PostDetailScreen: React.FC = () => {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>投稿</Text>
-        <View style={styles.backButton} />
+        {isOwnPost ? (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() => setMenuVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>⋯</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backButton} />
+        )}
       </View>
 
       {/* スクロール可能なコンテンツ */}
@@ -336,6 +385,21 @@ export const PostDetailScreen: React.FC = () => {
 
       {/* コメント入力 */}
       <CommentInput onSubmit={handleCommentSubmit} />
+
+      {/* メニューとダイアログ */}
+      <PostMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onEdit={handleEdit}
+        onDelete={() => setDeleteDialogVisible(true)}
+      />
+
+      <DeleteConfirmDialog
+        visible={deleteDialogVisible}
+        onClose={() => setDeleteDialogVisible(false)}
+        onConfirm={handleDeleteConfirm}
+        deleting={deleting}
+      />
     </View>
   );
 };
@@ -384,6 +448,16 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    fontSize: Typography.fontSize.xl,
+    color: '#B0B0B0',
   },
   scrollView: {
     flex: 1,

@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Linking } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Post } from '../../types/models';
 import { UserAvatar } from '../common/UserAvatar';
 import { getRelativeTime } from '../../utils/mockData';
 import { Colors, Typography, Spacing, BorderRadius, Shadow } from '../../config/theme';
+import { PostMenu } from './PostMenu';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import { deletePost } from '../../services/postService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface PostCardProps {
   post: Post;
@@ -12,7 +19,10 @@ interface PostCardProps {
   onSave: (postId: string) => void;
   onPressUser: (userId: string) => void;
   onPressPost: (postId: string) => void;
+  onPostDeleted?: () => void;
 }
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const PostCard: React.FC<PostCardProps> = ({
   post,
@@ -21,10 +31,47 @@ export const PostCard: React.FC<PostCardProps> = ({
   onSave,
   onPressUser,
   onPressPost,
+  onPostDeleted,
 }) => {
+  const navigation = useNavigation<NavigationProp>();
+  const { user } = useAuth();
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isOwnPost = user?.id === post.userId;
+
   const handleOpenPlaylist = () => {
     if (post.playlistUrl) {
       Linking.openURL(post.playlistUrl);
+    }
+  };
+
+  const handleEdit = () => {
+    navigation.navigate('EditPost', { postId: post.id });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!user) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await deletePost(post.id);
+
+      if (error) {
+        console.error('投稿削除エラー:', error);
+        window.alert('エラー: 投稿の削除に失敗しました');
+        return;
+      }
+
+      setDeleteDialogVisible(false);
+      onPostDeleted?.();
+      window.alert('投稿を削除しました');
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -99,9 +146,18 @@ export const PostCard: React.FC<PostCardProps> = ({
           <Text style={styles.username}>@{post.author.username}</Text>
           <Text style={styles.timestamp}>{getRelativeTime(post.createdAt)}</Text>
         </View>
-        <TouchableOpacity style={styles.menuButton}>
-          <Text style={styles.menuIcon}>⋯</Text>
-        </TouchableOpacity>
+        {isOwnPost && (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              setMenuVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.menuIcon}>⋯</Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
 
       {/* キャプション */}
@@ -159,6 +215,23 @@ export const PostCard: React.FC<PostCardProps> = ({
           <Text style={styles.actionCount}>保存</Text>
         </TouchableOpacity>
       </View>
+
+      {/* メニューとダイアログ */}
+      <PostMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onEdit={handleEdit}
+        onDelete={() => {
+          setDeleteDialogVisible(true);
+        }}
+      />
+
+      <DeleteConfirmDialog
+        visible={deleteDialogVisible}
+        onClose={() => setDeleteDialogVisible(false)}
+        onConfirm={handleDeleteConfirm}
+        deleting={deleting}
+      />
     </TouchableOpacity>
   );
 };
