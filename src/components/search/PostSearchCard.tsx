@@ -30,7 +30,7 @@ export const PostSearchCard: React.FC<PostSearchCardProps> = ({ post, onPress })
       <View style={styles.postInfo}>
         {/* プレイリストタイトル/曲名 */}
         <Text style={styles.title} numberOfLines={1}>
-          {post.playlistTitle || post.songTitle || 'タイトルなし'}
+          {post.playlistTitle || post.trackTitle || 'タイトルなし'}
         </Text>
 
         {/* サブ情報 */}
@@ -41,7 +41,7 @@ export const PostSearchCard: React.FC<PostSearchCardProps> = ({ post, onPress })
           {post.contentType === 'playlist' && post.playlistService && (
             <Text> · {post.playlistService}</Text>
           )}
-          {post.contentType === 'song' && post.songArtist && <Text>{post.songArtist}</Text>}
+          {post.contentType === 'track' && post.trackArtist && <Text>{post.trackArtist}</Text>}
         </Text>
 
         {/* 投稿者 */}

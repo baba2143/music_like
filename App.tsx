@@ -13,7 +13,7 @@ const App: React.FC = () => {
         <ProfileSetupProvider>
           <NavigationContainer>
             <RootNavigator />
-            <StatusBar style="auto" as any />
+            <StatusBar style="auto" />
           </NavigationContainer>
         </ProfileSetupProvider>
       </AuthProvider>

@@ -44,7 +44,7 @@ export const HomeScreen: React.FC = () => {
       if (data) {
         console.log('取得した投稿数:', data.posts.length);
         setPosts(data.posts);
-        setCursor(data.nextCursor);
+        setCursor(data.nextCursor ?? null);
         setHasMore(data.hasMore);
       }
     } catch (error) {
@@ -74,7 +74,7 @@ export const HomeScreen: React.FC = () => {
       if (data) {
         console.log('取得した追加投稿数:', data.posts.length);
         setPosts((prevPosts) => [...prevPosts, ...data.posts]);
-        setCursor(data.nextCursor);
+        setCursor(data.nextCursor ?? null);
         setHasMore(data.hasMore);
       }
     } catch (error) {
