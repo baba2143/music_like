@@ -1,151 +1,288 @@
-import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  Text,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileHeader } from '../../components/profile/ProfileHeader';
 import { ProfileStats } from '../../components/profile/ProfileStats';
 import { PostGrid } from '../../components/profile/PostGrid';
-import { User, Post } from '../../types/models';
+import { Post, User } from '../../types/models';
 import { RootStackParamList } from '../../navigation/RootNavigator';
+import { useAuth } from '../../contexts/AuthContext';
+import { getUserPosts, getSavedPosts } from '../../services/postService';
+import { getUserProfile } from '../../services/userService';
+import { Colors, Spacing, Typography } from '../../config/theme';
 
 type MyProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// ダミーユーザーデータ
-const DUMMY_USER: User = {
-  id: 'currentUser',
-  username: 'my_music_life',
-  displayName: '音楽ライフ',
-  bio: '音楽が人生🎵\n乃木坂46とSnow Man推し\n好きな曲をシェアしています',
-  oshiGroup: '乃木坂46',
-  oshiMember: '山下美月',
-  createdAt: new Date(),
-};
-
-// ダミー投稿データ
-const DUMMY_POSTS: Post[] = [
-  {
-    id: 'mypost1',
-    userId: 'currentUser',
-    author: DUMMY_USER,
-    contentType: 'playlist',
-    caption: 'お気に入りプレイリスト',
-    playlistTitle: 'My Favorite Songs',
-    playlistTrackCount: 30,
-    playlistService: 'spotify',
-    likesCount: 45,
-    commentsCount: 8,
-    savesCount: 12,
-    isLiked: false,
-    isSaved: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'mypost2',
-    userId: 'currentUser',
-    author: DUMMY_USER,
-    contentType: 'song',
-    caption: '今日のお気に入り',
-    songTitle: 'Sing Out!',
-    songArtist: '乃木坂46',
-    likesCount: 67,
-    commentsCount: 15,
-    savesCount: 23,
-    isLiked: false,
-    isSaved: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'mypost3',
-    userId: 'currentUser',
-    author: DUMMY_USER,
-    contentType: 'playlist',
-    caption: 'ドライブ用',
-    playlistTitle: 'Drive Mix',
-    playlistTrackCount: 25,
-    playlistService: 'apple_music',
-    likesCount: 34,
-    commentsCount: 6,
-    savesCount: 18,
-    isLiked: false,
-    isSaved: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'mypost4',
-    userId: 'currentUser',
-    author: DUMMY_USER,
-    contentType: 'song',
-    caption: 'この曲サイコー！',
-    songTitle: 'D.D.',
-    songArtist: 'Snow Man',
-    likesCount: 89,
-    commentsCount: 21,
-    savesCount: 34,
-    isLiked: false,
-    isSaved: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'mypost5',
-    userId: 'currentUser',
-    author: DUMMY_USER,
-    contentType: 'playlist',
-    caption: '作業用BGM',
-    playlistTitle: 'Work & Study',
-    playlistTrackCount: 40,
-    playlistService: 'spotify',
-    likesCount: 56,
-    commentsCount: 12,
-    savesCount: 28,
-    isLiked: false,
-    isSaved: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'mypost6',
-    userId: 'currentUser',
-    author: DUMMY_USER,
-    contentType: 'song',
-    caption: '癒される〜',
-    songTitle: 'ごめんねFingers crossed',
-    songArtist: '乃木坂46',
-    likesCount: 78,
-    commentsCount: 18,
-    savesCount: 31,
-    isLiked: false,
-    isSaved: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
+type TabType = 'posts' | 'playlists' | 'saved';
 
 export const MyProfileScreen: React.FC = () => {
   const navigation = useNavigation<MyProfileScreenNavigationProp>();
+  const { user } = useAuth(); // これはSupabase認証User（id, emailのみ）
+  const [profile, setProfile] = useState<User | null>(null); // アプリケーションのプロフィールUser
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [playlistPosts, setPlaylistPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [playlistLoading, setPlaylistLoading] = useState(false);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('posts');
+
+  // プロフィールを取得
+  const fetchProfile = useCallback(async () => {
+    if (!user) {
+      console.log('認証ユーザー情報がありません');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('=== マイページ: プロフィールを取得中 ===');
+      console.log('認証ユーザーID:', user.id);
+
+      const { data, error } = await getUserProfile(user.id);
+
+      if (error) {
+        console.error('プロフィール取得エラー:', error);
+        window.alert('エラー: プロフィールの取得に失敗しました');
+        return;
+      }
+
+      if (data) {
+        console.log('取得したプロフィール:', data);
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
+  }, [user]);
+
+  // 投稿を取得
+  const fetchPosts = useCallback(async () => {
+    if (!user) {
+      console.log('ユーザー情報がありません');
+      return;
+    }
+
+    try {
+      console.log('=== マイページ: 投稿を取得中 ===');
+      console.log('ユーザーID:', user.id);
+
+      const { data, error } = await getUserPosts(user.id, user.id, 50);
+
+      if (error) {
+        console.error('投稿取得エラー:', error);
+        window.alert('エラー: 投稿の取得に失敗しました');
+        return;
+      }
+
+      if (data) {
+        console.log('取得した投稿数:', data.length);
+        setPosts(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user posts:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
+  }, [user]);
+
+  // プレイリスト投稿を取得
+  const fetchPlaylists = useCallback(async () => {
+    if (playlistPosts.length > 0) return; // 既に取得済み
+
+    setPlaylistLoading(true);
+    try {
+      console.log('=== マイページ: プレイリスト投稿をフィルタリング中 ===');
+      const playlists = posts.filter((post) => post.contentType === 'playlist');
+      console.log('プレイリスト投稿数:', playlists.length);
+      setPlaylistPosts(playlists);
+    } catch (error) {
+      console.error('Failed to filter playlist posts:', error);
+    } finally {
+      setPlaylistLoading(false);
+    }
+  }, [posts, playlistPosts.length]);
+
+  // 保存済み投稿を取得
+  const fetchSavedPosts = useCallback(async () => {
+    if (!user || savedPosts.length > 0) return; // 既に取得済み
+
+    setSavedLoading(true);
+    try {
+      console.log('=== マイページ: 保存済み投稿を取得中 ===');
+      console.log('ユーザーID:', user.id);
+
+      const { data, error } = await getSavedPosts(user.id, user.id, 50);
+
+      if (error) {
+        console.error('保存済み投稿取得エラー:', error);
+        window.alert('エラー: 保存済み投稿の取得に失敗しました');
+        return;
+      }
+
+      if (data) {
+        console.log('保存済み投稿数:', data.length);
+        setSavedPosts(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch saved posts:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    } finally {
+      setSavedLoading(false);
+    }
+  }, [user, savedPosts.length]);
+
+  // 初回ロード（プロフィールと投稿を並行取得）
+  useEffect(() => {
+    const loadData = async () => {
+      await Promise.all([fetchProfile(), fetchPosts()]);
+      setLoading(false);
+    };
+
+    loadData();
+  }, [fetchProfile, fetchPosts]);
+
+  // リフレッシュ処理
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchProfile(), fetchPosts()]);
+    setRefreshing(false);
+  }, [fetchProfile, fetchPosts]);
 
   const handlePostPress = (postId: string) => {
     navigation.navigate('PostDetail', { postId });
   };
 
+  const handleEditPress = () => {
+    navigation.navigate('EditProfile');
+  };
+
+  // タブ切り替えハンドラ（遅延ロード）
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'playlists' && playlistPosts.length === 0) {
+      fetchPlaylists();
+    } else if (tab === 'saved' && savedPosts.length === 0) {
+      fetchSavedPosts();
+    }
+  };
+
+  // ユーザーが未ログインの場合
+  if (!user) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.errorText}>ログインが必要です</Text>
+      </View>
+    );
+  }
+
+  // ローディング中（プロフィールまたは投稿を取得中）
+  if (loading || !profile) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* ヘッダーバー */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
+          <Text style={styles.headerIconText}>👤</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{profile?.displayName || 'Music Like'}</Text>
+        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
+          <Text style={styles.headerIconText}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
+      >
         {/* プロフィールヘッダー */}
-        <ProfileHeader user={DUMMY_USER} />
+        <ProfileHeader user={profile} onEditPress={handleEditPress} />
 
         {/* 統計情報 */}
         <ProfileStats
-          postsCount={DUMMY_POSTS.length}
-          followersCount={234}
-          followingCount={189}
+          postsCount={posts.length}
+          followersCount={0} // TODO: フォロー機能実装後に実データを表示
+          followingCount={0} // TODO: フォロー機能実装後に実データを表示
         />
 
-        {/* 投稿グリッド */}
-        <PostGrid posts={DUMMY_POSTS} onPostPress={handlePostPress} />
+        {/* タブ */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange('posts')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>
+              投稿
+            </Text>
+            {activeTab === 'posts' && <View style={styles.tabIndicator} />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange('playlists')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'playlists' && styles.tabTextActive]}>
+              プレイリスト
+            </Text>
+            {activeTab === 'playlists' && <View style={styles.tabIndicator} />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange('saved')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'saved' && styles.tabTextActive]}>
+              保存
+            </Text>
+            {activeTab === 'saved' && <View style={styles.tabIndicator} />}
+          </TouchableOpacity>
+        </View>
+
+        {/* コンテンツ */}
+        {activeTab === 'posts' && <PostGrid posts={posts} onPostPress={handlePostPress} />}
+
+        {activeTab === 'playlists' &&
+          (playlistLoading ? (
+            <View style={[styles.container, styles.centerContent]}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : (
+            <PostGrid posts={playlistPosts} onPostPress={handlePostPress} />
+          ))}
+
+        {activeTab === 'saved' &&
+          (savedLoading ? (
+            <View style={[styles.container, styles.centerContent]}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : (
+            <PostGrid posts={savedPosts} onPostPress={handlePostPress} />
+          ))}
       </ScrollView>
     </View>
   );
@@ -155,5 +292,65 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIconText: {
+    fontSize: 20,
+  },
+  headerTitle: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: Colors.white,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+    backgroundColor: '#000000',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  tabText: {
+    fontSize: Typography.fontSize.sm,
+    color: '#808080',
+    fontWeight: Typography.fontWeight.medium,
+  },
+  tabTextActive: {
+    color: Colors.white,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: Colors.primary,
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: Typography.fontSize.md,
+    color: Colors.white,
   },
 });

@@ -12,11 +12,14 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProgressBar } from '../../components/profile/ProgressBar';
 import { TagInput } from '../../components/profile/TagInput';
+import { ArtistSelector } from '../../components/profile/ArtistSelector';
 import { Colors, Typography, Spacing } from '../../config/theme';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { useProfileSetup } from '../../contexts/ProfileSetupContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { createUserProfile } from '../../services/userService';
+import { saveFavoriteArtists } from '../../services/artistService';
+import { Artist } from '../../types/models';
 
 type ProfileSetupStep3NavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -29,7 +32,7 @@ export const ProfileSetupStep3Screen: React.FC = () => {
   const { user } = useAuth();
 
   const [favoriteGenres, setFavoriteGenres] = useState(profileData.favoriteGenres);
-  const [favoriteArtists, setFavoriteArtists] = useState(profileData.favoriteArtists);
+  const [favoriteArtists, setFavoriteArtists] = useState<Artist[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleBack = () => {
@@ -42,15 +45,9 @@ export const ProfileSetupStep3Screen: React.FC = () => {
       return;
     }
 
-    // データを保存
-    updateProfileData({
-      favoriteGenres,
-      favoriteArtists,
-    });
-
     setIsLoading(true);
 
-    // Supabaseにプロフィールを作成
+    // 1. Supabaseにプロフィールを作成
     const { data, error } = await createUserProfile({
       id: user.id,
       username: profileData.username,
@@ -60,12 +57,31 @@ export const ProfileSetupStep3Screen: React.FC = () => {
       oshiMember: profileData.oshiMember || undefined,
     });
 
-    setIsLoading(false);
-
     if (error) {
+      setIsLoading(false);
       Alert.alert('エラー', 'プロフィールの作成に失敗しました。もう一度お試しください。');
       return;
     }
+
+    // 2. お気に入りアーティストをデータベースに保存
+    if (favoriteArtists.length > 0) {
+      const artistIds = favoriteArtists.map((artist) => artist.id);
+      const { error: artistError } = await saveFavoriteArtists(user.id, artistIds);
+
+      if (artistError) {
+        setIsLoading(false);
+        Alert.alert('エラー', 'お気に入りアーティストの保存に失敗しました。');
+        return;
+      }
+    }
+
+    setIsLoading(false);
+
+    // データを保存（ジャンルはContextに保存、アーティストはDB保存済み）
+    updateProfileData({
+      favoriteGenres,
+      favoriteArtists: [], // アーティストはDBに保存したので空にする
+    });
 
     // 成功したらProfileSetupデータをリセット
     resetProfileData();
@@ -94,20 +110,23 @@ export const ProfileSetupStep3Screen: React.FC = () => {
           {/* お気に入りジャンル */}
           <TagInput
             label="お気に入りジャンル"
-            tags={favoriteGenres}
-            onTagsChange={setFavoriteGenres}
+            values={favoriteGenres}
+            onChange={setFavoriteGenres}
             placeholder="例: J-POP"
             maxTags={10}
           />
 
-          {/* お気に入りアーティスト */}
-          <TagInput
-            label="お気に入りアーティスト"
-            tags={favoriteArtists}
-            onTagsChange={setFavoriteArtists}
-            placeholder="例: YOASOBI"
-            maxTags={10}
-          />
+          {/* お気に入りアーティスト（データベース管理） */}
+          {user && (
+            <ArtistSelector
+              label="お気に入りアーティスト"
+              selectedArtists={favoriteArtists}
+              onArtistsChange={setFavoriteArtists}
+              placeholder="アーティスト名を検索"
+              maxArtists={10}
+              userId={user.id}
+            />
+          )}
         </View>
       </ScrollView>
 

@@ -28,6 +28,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({ avatarUrl, size = 'mediu
       {avatarUrl ? (
         <Image
           source={{ uri: avatarUrl }}
+          resizeMode="cover"
           style={[
             styles.image,
             { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
@@ -49,9 +50,7 @@ const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
   },
-  image: {
-    resizeMode: 'cover',
-  },
+  image: {},
   placeholder: {
     backgroundColor: Colors.gray300,
   },

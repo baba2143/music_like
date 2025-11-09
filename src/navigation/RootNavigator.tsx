@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Alert, Text } from 'react-native';
+import { Text } from 'react-native';
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { ProfileSetupStep1Screen } from '../screens/profile/ProfileSetupStep1Screen';
 import { ProfileSetupStep2Screen } from '../screens/profile/ProfileSetupStep2Screen';
@@ -10,7 +10,9 @@ import { HomeScreen } from '../screens/home/HomeScreen';
 import { SearchScreen } from '../screens/search/SearchScreen';
 import { NotificationScreen } from '../screens/notifications/NotificationScreen';
 import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
+import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
 import { PostDetailScreen } from '../screens/post/PostDetailScreen';
+import { CreatePostScreen } from '../screens/post/CreatePostScreen';
 import { Colors, Typography } from '../config/theme';
 
 // ルートスタック画面の型定義
@@ -21,6 +23,8 @@ export type RootStackParamList = {
   ProfileSetupStep3: undefined;
   MainTabs: undefined;
   PostDetail: { postId: string };
+  CreatePost: undefined;
+  EditProfile: undefined;
 };
 
 // タブ画面の型定義
@@ -35,10 +39,8 @@ export type MainTabParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-const PostPlaceholder = () => {
-  Alert.alert('準備中', '投稿機能は準備中です');
-  return null;
-};
+// 投稿タブ用のプレースホルダー（実際には表示されない）
+const PostPlaceholder = () => null;
 
 // Tab icon components (defined outside to avoid unstable nested components)
 const HomeIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🏠</Text>;
@@ -87,12 +89,13 @@ const MainTabs = () => {
       <Tab.Screen
         name="Post"
         component={PostPlaceholder}
-        listeners={{
+        listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            Alert.alert('準備中', '投稿機能は準備中です');
+            // @ts-ignore - 親のStack Navigatorに遷移
+            navigation.getParent()?.navigate('CreatePost');
           },
-        }}
+        })}
         options={{
           tabBarLabel: '投稿',
           tabBarIcon: PostIcon,
@@ -132,6 +135,8 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="ProfileSetupStep3" component={ProfileSetupStep3Screen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+      <Stack.Screen name="CreatePost" component={CreatePostScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
     </Stack.Navigator>
   );
 };

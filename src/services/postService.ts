@@ -39,11 +39,18 @@ export const createPost = async (
         content_type: params.contentType,
         caption: params.caption || null,
         hashtags: params.hashtags || [],
+        // プレイリスト関連フィールド
         playlist_url: params.playlistUrl || null,
+        playlist_title: params.playlistTitle || null,
+        playlist_thumbnail: params.playlistThumbnail || null,
+        playlist_track_count: params.playlistTrackCount || null,
+        playlist_service: params.playlistService || null,
+        // トラック関連フィールド
         track_title: params.trackTitle || null,
         track_artist: params.trackArtist || null,
         track_album: params.trackAlbum || null,
         track_thumbnail: params.trackThumbnail || null,
+        track_url: params.trackUrl || null,
       })
       .select(
         `
@@ -118,8 +125,8 @@ export const getPost = async (
 
     if (currentUserId) {
       const [likeResult, saveResult] = await Promise.all([
-        supabase.from('likes').select('id').eq('post_id', postId).eq('user_id', currentUserId).single(),
-        supabase.from('saves').select('id').eq('post_id', postId).eq('user_id', currentUserId).single(),
+        supabase.from('likes').select('id').eq('post_id', postId).eq('user_id', currentUserId).maybeSingle(),
+        supabase.from('saves').select('id').eq('post_id', postId).eq('user_id', currentUserId).maybeSingle(),
       ]);
 
       isLiked = !!likeResult.data;
@@ -260,13 +267,13 @@ export const getFeedPosts = async (
               .select('id')
               .eq('post_id', post.id)
               .eq('user_id', currentUserId)
-              .single(),
+              .maybeSingle(),
             supabase
               .from('saves')
               .select('id')
               .eq('post_id', post.id)
               .eq('user_id', currentUserId)
-              .single(),
+              .maybeSingle(),
           ]);
 
           isLiked = !!likeResult.data;
@@ -337,13 +344,13 @@ export const getUserPosts = async (
               .select('id')
               .eq('post_id', post.id)
               .eq('user_id', currentUserId)
-              .single(),
+              .maybeSingle(),
             supabase
               .from('saves')
               .select('id')
               .eq('post_id', post.id)
               .eq('user_id', currentUserId)
-              .single(),
+              .maybeSingle(),
           ]);
 
           isLiked = !!likeResult.data;
@@ -362,6 +369,58 @@ export const getUserPosts = async (
 };
 
 /**
+ * 投稿にいいね/いいね解除
+ */
+export const toggleLike = async (
+  postId: string,
+  userId: string
+): Promise<{ isLiked: boolean; error: Error | null }> => {
+  try {
+    // 既にいいねしているかチェック
+    const { data: existingLike, error: checkError } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (checkError) {
+      throw checkError;
+    }
+
+    if (existingLike) {
+      // いいね解除
+      const { error } = await supabase
+        .from('likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+
+      return { isLiked: false, error: null };
+    } else {
+      // いいね
+      const { error } = await supabase.from('likes').insert({
+        post_id: postId,
+        user_id: userId,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { isLiked: true, error: null };
+    }
+  } catch (error) {
+    console.error('Failed to toggle like:', error);
+    return { isLiked: false, error: error as Error };
+  }
+};
+
+/**
  * 投稿を保存/保存解除
  */
 export const toggleSave = async (
@@ -375,9 +434,9 @@ export const toggleSave = async (
       .select('id')
       .eq('post_id', postId)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (checkError && checkError.code !== 'PGRST116') {
+    if (checkError) {
       throw checkError;
     }
 
@@ -410,6 +469,81 @@ export const toggleSave = async (
   } catch (error) {
     console.error('Failed to toggle save:', error);
     return { isSaved: false, error: error as Error };
+  }
+};
+
+/**
+ * 保存済み投稿を取得
+ */
+export const getSavedPosts = async (
+  userId: string,
+  currentUserId?: string,
+  limit: number = 20
+): Promise<PostsServiceResponse> => {
+  try {
+    const { data, error } = await supabase
+      .from('saves')
+      .select(
+        `
+        created_at,
+        posts!inner (
+          *,
+          users!posts_user_id_fkey (
+            id,
+            username,
+            display_name,
+            avatar_url,
+            bio,
+            oshi_group,
+            oshi_member,
+            created_at
+          )
+        )
+      `
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    // いいね状態と保存状態を一括取得
+    const mappedPosts = await Promise.all(
+      data.map(async (save: any) => {
+        const post = save.posts;
+        let isLiked = false;
+        let isSaved = false;
+
+        if (currentUserId) {
+          const [likeResult, saveResult] = await Promise.all([
+            supabase
+              .from('likes')
+              .select('id')
+              .eq('post_id', post.id)
+              .eq('user_id', currentUserId)
+              .maybeSingle(),
+            supabase
+              .from('saves')
+              .select('id')
+              .eq('post_id', post.id)
+              .eq('user_id', currentUserId)
+              .maybeSingle(),
+          ]);
+
+          isLiked = !!likeResult.data;
+          isSaved = !!saveResult.data;
+        }
+
+        return mapDatabasePostToPost(post, currentUserId, isLiked, isSaved);
+      })
+    );
+
+    return { data: mappedPosts, error: null };
+  } catch (error) {
+    console.error('Failed to get saved posts:', error);
+    return { data: [], error: error as Error };
   }
 };
 

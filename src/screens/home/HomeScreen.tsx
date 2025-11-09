@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   FlatList,
@@ -6,48 +6,92 @@ import {
   RefreshControl,
   Text,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PostCard } from '../../components/post/PostCard';
 import { Post } from '../../types/models';
 import { RootStackParamList } from '../../navigation/RootNavigator';
-import { mockPosts } from '../../utils/mockData';
 import { Colors, Spacing, Typography } from '../../config/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { getFeedPosts, toggleLike, toggleSave } from '../../services/postService';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const { user } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // 投稿を取得
+  const fetchPosts = useCallback(async () => {
+    try {
+      console.log('投稿を取得中...');
+      const { data, error } = await getFeedPosts(user?.id, 20);
+
+      if (error) {
+        console.error('投稿取得エラー:', error);
+        window.alert('エラー: 投稿の取得に失敗しました');
+        return;
+      }
+
+      if (data) {
+        console.log('取得した投稿数:', data.posts.length);
+        setPosts(data.posts);
+      }
+    } catch (error) {
+      console.error('Failed to fetch posts:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
+  }, [user]);
+
+  // 初回ロード
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
 
   // リフレッシュ処理
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // 本番ではAPIからデータ取得
-    setTimeout(() => {
-      setPosts([...mockPosts]);
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+    await fetchPosts();
+    setRefreshing(false);
+  }, [fetchPosts]);
 
   // いいねボタン
-  const handleLike = useCallback((postId: string) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isLiked: !post.isLiked,
-              likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1,
-            }
-          : post
-      )
-    );
-  }, []);
+  const handleLike = useCallback(async (postId: string) => {
+    if (!user) {
+      window.alert('ログインが必要です');
+      return;
+    }
+
+    try {
+      const { isLiked, error } = await toggleLike(postId, user.id);
+
+      if (error) {
+        console.error('いいねエラー:', error);
+        window.alert('エラー: いいねに失敗しました');
+        return;
+      }
+
+      // ローカルステートを更新
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked,
+                likesCount: isLiked ? post.likesCount + 1 : post.likesCount - 1,
+              }
+            : post
+        )
+      );
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
+  }, [user]);
 
   // コメントボタン
   const handleComment = useCallback(
@@ -58,22 +102,42 @@ export const HomeScreen: React.FC = () => {
   );
 
   // 保存ボタン
-  const handleSave = useCallback((postId: string) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isSaved: !post.isSaved,
-            }
-          : post
-      )
-    );
-  }, []);
+  const handleSave = useCallback(async (postId: string) => {
+    if (!user) {
+      window.alert('ログインが必要です');
+      return;
+    }
+
+    try {
+      const { isSaved, error } = await toggleSave(postId, user.id);
+
+      if (error) {
+        console.error('保存エラー:', error);
+        window.alert('エラー: 保存に失敗しました');
+        return;
+      }
+
+      // ローカルステートを更新
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isSaved,
+                savesCount: isSaved ? post.savesCount + 1 : post.savesCount - 1,
+              }
+            : post
+        )
+      );
+    } catch (error) {
+      console.error('Failed to toggle save:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
+  }, [user]);
 
   // ユーザープロフィール表示
   const handlePressUser = useCallback((_userId: string) => {
-    Alert.alert('準備中', 'ユーザープロフィール画面は準備中です');
+    window.alert('準備中: ユーザープロフィール画面は準備中です');
   }, []);
 
   // 投稿詳細表示

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors, Typography, Spacing } from '../../config/theme';
 
 interface ProfileStatsProps {
@@ -10,6 +10,17 @@ interface ProfileStatsProps {
   onFollowersPress?: () => void;
   onFollowingPress?: () => void;
 }
+
+// 数値をフォーマット（1000 → 1k, 1200 → 1.2k）
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace('.0', '') + 'M';
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace('.0', '') + 'k';
+  }
+  return num.toString();
+};
 
 export const ProfileStats: React.FC<ProfileStatsProps> = ({
   postsCount,
@@ -29,7 +40,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
     if (onFollowersPress) {
       onFollowersPress();
     } else {
-      Alert.alert('準備中', 'フォロワー一覧機能は準備中です');
+      window.alert('準備中: フォロワー一覧機能は準備中です');
     }
   };
 
@@ -37,7 +48,7 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
     if (onFollowingPress) {
       onFollowingPress();
     } else {
-      Alert.alert('準備中', 'フォロー一覧機能は準備中です');
+      window.alert('準備中: フォロー一覧機能は準備中です');
     }
   };
 
@@ -48,29 +59,25 @@ export const ProfileStats: React.FC<ProfileStatsProps> = ({
         onPress={handlePostsPress}
         activeOpacity={0.7}
       >
-        <Text style={styles.statNumber}>{postsCount}</Text>
+        <Text style={styles.statNumber}>{formatNumber(postsCount)}</Text>
         <Text style={styles.statLabel}>投稿</Text>
       </TouchableOpacity>
-
-      <View style={styles.divider} />
 
       <TouchableOpacity
         style={styles.statItem}
         onPress={handleFollowersPress}
         activeOpacity={0.7}
       >
-        <Text style={styles.statNumber}>{followersCount}</Text>
+        <Text style={styles.statNumber}>{formatNumber(followersCount)}</Text>
         <Text style={styles.statLabel}>フォロワー</Text>
       </TouchableOpacity>
-
-      <View style={styles.divider} />
 
       <TouchableOpacity
         style={styles.statItem}
         onPress={handleFollowingPress}
         activeOpacity={0.7}
       >
-        <Text style={styles.statNumber}>{followingCount}</Text>
+        <Text style={styles.statNumber}>{formatNumber(followingCount)}</Text>
         <Text style={styles.statLabel}>フォロー中</Text>
       </TouchableOpacity>
     </View>
@@ -82,30 +89,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: Spacing.lg,
+    paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.lg,
     backgroundColor: '#000000',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#2A2A2A',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: Typography.fontSize.xxl,
+    fontSize: Typography.fontSize.xl,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     color: '#808080',
-  },
-  divider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#2A2A2A',
   },
 });

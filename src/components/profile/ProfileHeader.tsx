@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Share, Image } from 'react-native';
 import { User } from '../../types/models';
 import { Colors, Typography, Spacing } from '../../config/theme';
 
@@ -13,7 +13,17 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, onEditPress 
     if (onEditPress) {
       onEditPress();
     } else {
-      Alert.alert('準備中', 'プロフィール編集機能は準備中です');
+      window.alert('準備中: プロフィール編集機能は準備中です');
+    }
+  };
+
+  const handleSharePress = async () => {
+    try {
+      await Share.share({
+        message: `@${user.username}さんのプロフィールをチェック！`,
+      });
+    } catch (error) {
+      console.error('Failed to share profile:', error);
     }
   };
 
@@ -21,42 +31,46 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, onEditPress 
     <View style={styles.container}>
       {/* アバター */}
       <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{user.username.charAt(0).toUpperCase()}</Text>
-        </View>
+        {user.avatarUrl ? (
+          <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{user.username.charAt(0).toUpperCase()}</Text>
+          </View>
+        )}
+        {/* 編集アイコン */}
+        <TouchableOpacity
+          style={styles.editIconButton}
+          onPress={handleEditPress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.editIcon}>✏️</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ユーザー情報 */}
       <View style={styles.infoContainer}>
-        <Text style={styles.displayName}>{user.displayName}</Text>
         <Text style={styles.username}>@{user.username}</Text>
-
         {user.bio && <Text style={styles.bio}>{user.bio}</Text>}
-
-        {(user.oshiGroup || user.oshiMember) && (
-          <View style={styles.oshiContainer}>
-            {user.oshiGroup && (
-              <View style={styles.oshiTag}>
-                <Text style={styles.oshiText}>推し: {user.oshiGroup}</Text>
-              </View>
-            )}
-            {user.oshiMember && (
-              <View style={styles.oshiTag}>
-                <Text style={styles.oshiText}>{user.oshiMember}</Text>
-              </View>
-            )}
-          </View>
-        )}
       </View>
 
-      {/* 編集ボタン */}
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={handleEditPress}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.editButtonText}>プロフィール編集</Text>
-      </TouchableOpacity>
+      {/* アクションボタン */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleEditPress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.actionButtonText}>プロフィールを編集</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleSharePress}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.actionButtonText}>プロフィールをシェア</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -64,76 +78,87 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, onEditPress 
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.md,
     backgroundColor: '#000000',
   },
   avatarContainer: {
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
+    position: 'relative',
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.primary,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E5E5E5', // 白っぽい背景
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#000000',
+  },
+  avatarImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 3,
+    borderColor: '#000000',
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: Typography.fontWeight.bold,
-    color: Colors.white,
+    color: '#808080',
+  },
+  editIconButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: '35%',
+    backgroundColor: Colors.primary,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#000000',
+  },
+  editIcon: {
+    fontSize: 14,
   },
   infoContainer: {
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
-  displayName: {
-    fontSize: Typography.fontSize.xl,
+  username: {
+    fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
     marginBottom: Spacing.xs,
   },
-  username: {
-    fontSize: Typography.fontSize.base,
-    color: '#808080',
-    marginBottom: Spacing.md,
-  },
   bio: {
-    fontSize: Typography.fontSize.base,
-    color: Colors.white,
+    fontSize: Typography.fontSize.sm,
+    color: '#808080',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 18,
+    paddingHorizontal: Spacing.md,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  oshiContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-  },
-  oshiTag: {
-    backgroundColor: '#2A2A2A',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 16,
-  },
-  oshiText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.primary,
-    fontWeight: Typography.fontWeight.medium,
-  },
-  editButton: {
-    backgroundColor: '#1A1A1A',
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#000000',
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: '#FFFFFF',
     alignItems: 'center',
   },
-  editButtonText: {
-    fontSize: Typography.fontSize.base,
+  actionButtonText: {
+    fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.semiBold,
     color: Colors.white,
   },

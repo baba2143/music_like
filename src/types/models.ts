@@ -7,6 +7,14 @@ export interface User {
   bio?: string;
   oshiGroup?: string; // 推しグループ
   oshiMember?: string; // 推しメンバー
+  gender?: 'male' | 'female' | 'other' | 'private'; // 性別
+  birthDate?: Date; // 誕生日
+  location?: string; // 居住地
+  fanYears?: string; // ファン歴
+  supportAmount?: string; // 支援金額の範囲
+  otakuStyles?: string[]; // オタ活スタイル（複数選択）
+  supporterWelcome?: 'yes' | 'no'; // 同担歓迎設定
+  eventFrequency?: 'frequent' | 'sometimes' | 'rarely'; // 現場参加頻度
   createdAt: Date;
 }
 
@@ -123,11 +131,29 @@ export interface CreatePostInput {
   contentType: PostType;
   caption?: string;
   hashtags?: string[];
+  // プレイリスト投稿用
   playlistUrl?: string;
+  playlistTitle?: string;
+  playlistThumbnail?: string;
+  playlistTrackCount?: number;
+  playlistService?: 'spotify' | 'apple_music' | 'youtube_music';
+  // トラック投稿用
   trackTitle?: string;
   trackArtist?: string;
   trackAlbum?: string;
   trackThumbnail?: string;
+  trackUrl?: string;
+}
+
+// アーティスト情報（ユーザー生成）
+export interface Artist {
+  id: string;
+  name: string; // 表示名（ユーザーが入力した形式）
+  normalizedName: string; // 正規化名（重複チェック用）
+  createdBy: string; // 作成したユーザーID
+  usageCount: number; // 何人のユーザーが選択しているか
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // フィードの型（ページネーション用）

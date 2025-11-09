@@ -1,66 +1,66 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Colors, Typography, Spacing } from '../../config/theme';
-
-interface CheckboxOption {
-  label: string;
-  value: string;
-}
 
 interface CheckboxGroupProps {
   label: string;
-  required?: boolean;
-  options: CheckboxOption[];
-  values: string[];
-  onChange: (values: string[]) => void;
+  options: readonly string[];
+  selectedValues: string[];
+  onValuesChange: (values: string[]) => void;
 }
 
 export const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
   label,
-  required = false,
   options,
-  values,
-  onChange,
+  selectedValues,
+  onValuesChange,
 }) => {
   const handleToggle = (value: string) => {
-    if (values.includes(value)) {
-      onChange(values.filter((v) => v !== value));
+    const isSelected = selectedValues.includes(value);
+    if (isSelected) {
+      onValuesChange(selectedValues.filter((v) => v !== value));
     } else {
-      onChange([...values, value]);
+      onValuesChange([...selectedValues, value]);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* ラベル */}
-      <Text style={styles.label}>
-        {label}
-        {required && <Text style={styles.required}> *</Text>}
-      </Text>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.helperText}>複数選択可能です</Text>
 
-      {/* オプション */}
       <View style={styles.optionsContainer}>
         {options.map((option, index) => {
-          const isSelected = values.includes(option.value);
-
+          const isSelected = selectedValues.includes(option);
           return (
             <TouchableOpacity
               key={index}
-              style={styles.option}
-              onPress={() => handleToggle(option.value)}
+              style={[
+                styles.checkboxItem,
+                isSelected && styles.checkboxItemSelected,
+              ]}
+              onPress={() => handleToggle(option)}
               activeOpacity={0.7}
             >
-              {/* チェックボックス */}
-              <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+              <View
+                style={[
+                  styles.checkbox,
+                  isSelected && styles.checkboxSelected,
+                ]}
+              >
                 {isSelected && <Text style={styles.checkmark}>✓</Text>}
               </View>
-
-              {/* ラベル */}
-              <Text style={styles.optionLabel}>{option.label}</Text>
+              <Text style={styles.optionText}>{option}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
+
+      {selectedValues.length > 0 && (
+        <Text style={styles.selectedCount}>
+          {selectedValues.length}個選択中
+        </Text>
+      )}
     </View>
   );
 };
@@ -71,30 +71,43 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.medium,
+    fontWeight: Typography.fontWeight.semiBold,
     color: Colors.white,
+    marginBottom: Spacing.xs,
+  },
+  helperText: {
+    fontSize: Typography.fontSize.xs,
+    color: '#808080',
     marginBottom: Spacing.sm,
   },
-  required: {
-    color: Colors.primary,
-  },
   optionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
-  option: {
+  checkboxItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Spacing.xs,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  checkboxItemSelected: {
+    backgroundColor: 'rgba(255, 20, 147, 0.1)',
+    borderColor: Colors.primary,
   },
   checkbox: {
     width: 20,
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#808080',
+    borderColor: '#4A4A4A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.sm,
+    marginRight: Spacing.xs,
   },
   checkboxSelected: {
     backgroundColor: Colors.primary,
@@ -105,8 +118,14 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: Typography.fontWeight.bold,
   },
-  optionLabel: {
-    fontSize: Typography.fontSize.base,
+  optionText: {
+    fontSize: Typography.fontSize.sm,
     color: Colors.white,
+  },
+  selectedCount: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.primary,
+    marginTop: Spacing.sm,
+    fontWeight: Typography.fontWeight.semiBold,
   },
 });

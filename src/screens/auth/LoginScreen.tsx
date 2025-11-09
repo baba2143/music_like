@@ -19,6 +19,7 @@ import { RootStackParamList } from '../../navigation/RootNavigator';
 import { Colors, Typography, Spacing } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { getJapaneseErrorMessage } from '../../services/authService';
+import { getUserProfile } from '../../services/userService';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -58,21 +59,8 @@ export const LoginScreen: React.FC = () => {
         }
 
         if (data) {
-          Alert.alert(
-            'サインアップ成功',
-            '確認メールを送信しました。メールを確認してアカウントを有効化してください。',
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  setIsSignUp(false);
-                  setEmail('');
-                  setPassword('');
-                  setConfirmPassword('');
-                },
-              },
-            ]
-          );
+          // メール確認が無効の場合は直接ProfileSetupへ遷移
+          navigation.navigate('ProfileSetupStep1');
         }
       } else {
         // ログイン
@@ -84,9 +72,16 @@ export const LoginScreen: React.FC = () => {
         }
 
         if (data) {
-          // ログイン成功 - ProfileSetupまたはMainTabsに遷移
-          // TODO: ユーザープロフィールが存在するかチェックして遷移先を決定
-          navigation.navigate('ProfileSetupStep1');
+          // プロフィールの存在確認
+          const { data: profile } = await getUserProfile(data.id);
+
+          if (profile) {
+            // プロフィールが存在する → メイン画面へ
+            navigation.navigate('MainTabs');
+          } else {
+            // プロフィールが存在しない → プロフィール設定へ
+            navigation.navigate('ProfileSetupStep1');
+          }
         }
       }
     } finally {

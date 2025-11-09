@@ -22,6 +22,14 @@ export interface UpdateUserProfileParams {
   avatarUrl?: string;
   oshiGroup?: string;
   oshiMember?: string;
+  gender?: 'male' | 'female' | 'other' | 'private';
+  birthDate?: Date;
+  location?: string;
+  fanYears?: string;
+  supportAmount?: string;
+  otakuStyles?: string[];
+  supporterWelcome?: 'yes' | 'no';
+  eventFrequency?: 'frequent' | 'sometimes' | 'rarely';
 }
 
 export interface UserServiceResponse<T = User> {
@@ -60,16 +68,7 @@ export const createUserProfile = async (
     }
 
     // Supabaseのスネークケースをキャメルケースに変換
-    const user: User = {
-      id: data.id,
-      username: data.username,
-      displayName: data.display_name,
-      bio: data.bio,
-      avatarUrl: data.avatar_url,
-      oshiGroup: data.oshi_group,
-      oshiMember: data.oshi_member,
-      createdAt: new Date(data.created_at),
-    };
+    const user = mapDatabaseUserToUser(data);
 
     return { data: user, error: null };
   } catch (error) {
@@ -97,16 +96,7 @@ export const getUserProfile = async (userId: string): Promise<UserServiceRespons
       return { data: null, error: new Error('User profile not found') };
     }
 
-    const user: User = {
-      id: data.id,
-      username: data.username,
-      displayName: data.display_name,
-      bio: data.bio,
-      avatarUrl: data.avatar_url,
-      oshiGroup: data.oshi_group,
-      oshiMember: data.oshi_member,
-      createdAt: new Date(data.created_at),
-    };
+    const user = mapDatabaseUserToUser(data);
 
     return { data: user, error: null };
   } catch (error) {
@@ -136,16 +126,7 @@ export const getUserByUsername = async (
       return { data: null, error: new Error('User not found') };
     }
 
-    const user: User = {
-      id: data.id,
-      username: data.username,
-      displayName: data.display_name,
-      bio: data.bio,
-      avatarUrl: data.avatar_url,
-      oshiGroup: data.oshi_group,
-      oshiMember: data.oshi_member,
-      createdAt: new Date(data.created_at),
-    };
+    const user = mapDatabaseUserToUser(data);
 
     return { data: user, error: null };
   } catch (error) {
@@ -163,13 +144,21 @@ export const updateUserProfile = async (
 ): Promise<UserServiceResponse<User>> => {
   try {
     // スネークケースに変換
-    const updateData: Record<string, unknown> = {};
+    const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (updates.username !== undefined) updateData.username = updates.username;
     if (updates.displayName !== undefined) updateData.display_name = updates.displayName;
     if (updates.bio !== undefined) updateData.bio = updates.bio;
     if (updates.avatarUrl !== undefined) updateData.avatar_url = updates.avatarUrl;
     if (updates.oshiGroup !== undefined) updateData.oshi_group = updates.oshiGroup;
     if (updates.oshiMember !== undefined) updateData.oshi_member = updates.oshiMember;
+    if (updates.gender !== undefined) updateData.gender = updates.gender;
+    if (updates.birthDate !== undefined) updateData.birth_date = updates.birthDate?.toISOString().split('T')[0];
+    if (updates.location !== undefined) updateData.location = updates.location;
+    if (updates.fanYears !== undefined) updateData.fan_years = updates.fanYears;
+    if (updates.supportAmount !== undefined) updateData.support_amount = updates.supportAmount;
+    if (updates.otakuStyles !== undefined) updateData.otaku_styles = updates.otakuStyles;
+    if (updates.supporterWelcome !== undefined) updateData.supporter_welcome = updates.supporterWelcome;
+    if (updates.eventFrequency !== undefined) updateData.event_frequency = updates.eventFrequency;
 
     const { data, error } = await supabase
       .from('users')
@@ -182,16 +171,7 @@ export const updateUserProfile = async (
       throw error;
     }
 
-    const user: User = {
-      id: data.id,
-      username: data.username,
-      displayName: data.display_name,
-      bio: data.bio,
-      avatarUrl: data.avatar_url,
-      oshiGroup: data.oshi_group,
-      oshiMember: data.oshi_member,
-      createdAt: new Date(data.created_at),
-    };
+    const user = mapDatabaseUserToUser(data);
 
     return { data: user, error: null };
   } catch (error) {
@@ -243,16 +223,7 @@ export const searchUsers = async (
       throw error;
     }
 
-    const users: User[] = (data || []).map((item) => ({
-      id: item.id,
-      username: item.username,
-      displayName: item.display_name,
-      bio: item.bio,
-      avatarUrl: item.avatar_url,
-      oshiGroup: item.oshi_group,
-      oshiMember: item.oshi_member,
-      createdAt: new Date(item.created_at),
-    }));
+    const users: User[] = (data || []).map((item) => mapDatabaseUserToUser(item));
 
     return { data: users, error: null };
   } catch (error) {
@@ -278,16 +249,7 @@ export const getUsersByIds = async (
       throw error;
     }
 
-    const users: User[] = (data || []).map((item) => ({
-      id: item.id,
-      username: item.username,
-      displayName: item.display_name,
-      bio: item.bio,
-      avatarUrl: item.avatar_url,
-      oshiGroup: item.oshi_group,
-      oshiMember: item.oshi_member,
-      createdAt: new Date(item.created_at),
-    }));
+    const users: User[] = (data || []).map((item) => mapDatabaseUserToUser(item));
 
     return { data: users, error: null };
   } catch (error) {
@@ -295,3 +257,27 @@ export const getUsersByIds = async (
     return { data: [], error: error as Error };
   }
 };
+
+/**
+ * データベース行をUserオブジェクトにマッピング
+ */
+function mapDatabaseUserToUser(data: any): User {
+  return {
+    id: data.id,
+    username: data.username,
+    displayName: data.display_name,
+    bio: data.bio,
+    avatarUrl: data.avatar_url,
+    oshiGroup: data.oshi_group,
+    oshiMember: data.oshi_member,
+    gender: data.gender,
+    birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
+    location: data.location,
+    fanYears: data.fan_years,
+    supportAmount: data.support_amount,
+    otakuStyles: data.otaku_styles || [],
+    supporterWelcome: data.supporter_welcome,
+    eventFrequency: data.event_frequency,
+    createdAt: new Date(data.created_at),
+  };
+}

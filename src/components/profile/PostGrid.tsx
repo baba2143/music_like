@@ -27,32 +27,39 @@ export const PostGrid: React.FC<PostGridProps> = ({ posts, onPostPress }) => {
     }
   };
 
-  const renderItem = ({ item }: { item: Post }) => (
-    <TouchableOpacity
-      style={styles.gridItem}
-      onPress={() => handlePostPress(item.id)}
-      activeOpacity={0.7}
-    >
-      {/* サムネイル（プレースホルダー） */}
-      <View style={styles.thumbnail}>
-        <Text style={styles.thumbnailIcon}>🎵</Text>
-      </View>
+  const renderItem = ({ item, index }: { item: Post; index: number }) => {
+    // タイトルを取得（プレイリスト、トラック、またはキャプション）
+    const title =
+      item.playlistTitle ||
+      item.trackTitle ||
+      (item.caption ? item.caption.substring(0, 30) : 'Untitled');
 
-      {/* エンゲージメント情報 */}
-      <View style={styles.overlay}>
-        <View style={styles.engagementContainer}>
-          <View style={styles.engagementItem}>
-            <Text style={styles.engagementIcon}>♡</Text>
-            <Text style={styles.engagementText}>{item.likesCount}</Text>
+    return (
+      <View style={styles.gridItem}>
+        <TouchableOpacity
+          style={styles.gridTouchable}
+          onPress={() => handlePostPress(item.id)}
+          activeOpacity={0.7}
+        >
+          {/* サムネイル */}
+          <View style={styles.thumbnail}>
+            {/* 再生ボタン */}
+            <View style={styles.playButton}>
+              <Text style={styles.playIcon}>▶</Text>
+            </View>
+            {/* 番号アイコン（左下） */}
+            <View style={styles.numberBadge}>
+              <Text style={styles.numberText}>{index + 1}</Text>
+            </View>
           </View>
-          <View style={styles.engagementItem}>
-            <Text style={styles.engagementIcon}>💬</Text>
-            <Text style={styles.engagementText}>{item.commentsCount}</Text>
-          </View>
-        </View>
+        </TouchableOpacity>
+        {/* タイトル */}
+        <Text style={styles.titleText} numberOfLines={2}>
+          {title}
+        </Text>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -82,49 +89,57 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   row: {
-    marginBottom: SPACING,
+    marginBottom: Spacing.base,
     paddingHorizontal: SPACING,
   },
   gridItem: {
     width: ITEM_SIZE,
-    height: ITEM_SIZE,
     marginHorizontal: SPACING / 2,
-    position: 'relative',
+  },
+  gridTouchable: {
+    width: '100%',
+    aspectRatio: 1,
+    marginBottom: Spacing.xs,
   },
   thumbnail: {
     flex: 1,
     backgroundColor: '#2A2A2A',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 4,
+    position: 'relative',
   },
-  thumbnailIcon: {
-    fontSize: 32,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  playButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  engagementContainer: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+  playIcon: {
+    fontSize: 20,
+    color: '#000000',
+    marginLeft: 4,
   },
-  engagementItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
+  numberBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
-  engagementIcon: {
-    fontSize: 16,
-  },
-  engagementText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: Typography.fontWeight.semiBold,
+  numberText: {
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 3,
+  },
+  titleText: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.white,
+    lineHeight: 14,
   },
   emptyContainer: {
     flex: 1,

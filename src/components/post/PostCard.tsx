@@ -42,11 +42,19 @@ export const PostCard: React.FC<PostCardProps> = ({
           </Text>
           <Text style={styles.playlistMeta}>
             {post.playlistTrackCount}曲 •{' '}
-            {post.playlistService === 'spotify' ? 'Spotify' : 'Apple Music'}
+            {post.playlistService === 'spotify'
+              ? 'Spotify'
+              : post.playlistService === 'apple_music'
+              ? 'Apple Music'
+              : 'YouTube Music'}
           </Text>
           <TouchableOpacity style={styles.openButton} onPress={handleOpenPlaylist}>
             <Text style={styles.openButtonText}>
-              {post.playlistService === 'spotify' ? 'Spotifyで開く' : '開く'}
+              {post.playlistService === 'spotify'
+                ? 'Spotifyで開く'
+                : post.playlistService === 'apple_music'
+                ? 'Apple Musicで開く'
+                : 'YouTube Musicで開く'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -112,7 +120,7 @@ export const PostCard: React.FC<PostCardProps> = ({
         <View style={styles.hashtags}>
           {post.hashtags.map((tag) => (
             <Text key={tag} style={styles.hashtag}>
-              {tag}{' '}
+              #{tag}{' '}
             </Text>
           ))}
         </View>
