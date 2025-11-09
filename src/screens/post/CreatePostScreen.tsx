@@ -37,12 +37,15 @@ export const CreatePostScreen: React.FC = () => {
   // プレイリスト関連の状態
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [playlistTitle, setPlaylistTitle] = useState('');
+  const [playlistThumbnail, setPlaylistThumbnail] = useState('');
+  const [playlistTrackCount, setPlaylistTrackCount] = useState<number>();
   const [playlistService, setPlaylistService] = useState<'spotify' | 'apple_music' | 'youtube_music'>('spotify');
 
   // トラック関連の状態
   const [trackTitle, setTrackTitle] = useState('');
   const [trackArtist, setTrackArtist] = useState('');
   const [trackAlbum, setTrackAlbum] = useState('');
+  const [trackThumbnail, setTrackThumbnail] = useState('');
   const [trackUrl, setTrackUrl] = useState('');
 
   const [isPosting, setIsPosting] = useState(false);
@@ -99,6 +102,12 @@ export const CreatePostScreen: React.FC = () => {
         // フォームに自動入力
         if (metadata.title && !playlistTitle) {
           setPlaylistTitle(metadata.title);
+        }
+        if (metadata.thumbnailUrl) {
+          setPlaylistThumbnail(metadata.thumbnailUrl);
+        }
+        if (metadata.trackCount) {
+          setPlaylistTrackCount(metadata.trackCount);
         }
         if (metadata.service) {
           setPlaylistService(metadata.service);
@@ -160,6 +169,9 @@ export const CreatePostScreen: React.FC = () => {
         if (metadata.artist && !trackArtist) {
           setTrackArtist(metadata.artist);
         }
+        if (metadata.thumbnailUrl) {
+          setTrackThumbnail(metadata.thumbnailUrl);
+        }
 
         window.alert('プレビュー取得完了！\n曲情報が自動入力されました。');
       } else {
@@ -219,11 +231,14 @@ export const CreatePostScreen: React.FC = () => {
         // プレイリスト
         playlistUrl: postType === 'playlist' ? playlistUrl.trim() : undefined,
         playlistTitle: postType === 'playlist' ? playlistTitle.trim() : undefined,
+        playlistThumbnail: postType === 'playlist' ? playlistThumbnail || undefined : undefined,
+        playlistTrackCount: postType === 'playlist' ? playlistTrackCount : undefined,
         playlistService: postType === 'playlist' ? playlistService : undefined,
         // トラック
         trackTitle: postType === 'track' ? trackTitle.trim() : undefined,
         trackArtist: postType === 'track' ? trackArtist.trim() : undefined,
         trackAlbum: postType === 'track' ? trackAlbum.trim() || undefined : undefined,
+        trackThumbnail: postType === 'track' ? trackThumbnail || undefined : undefined,
         trackUrl: postType === 'track' ? trackUrl.trim() || undefined : undefined,
       };
 
