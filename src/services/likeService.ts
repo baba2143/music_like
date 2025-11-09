@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { Post } from '../types/models';
+import { createNotification } from './notificationService';
 
 /**
  * いいねサービス
@@ -45,6 +46,23 @@ export const toggleLike = async (
 
       if (error) {
         throw error;
+      }
+
+      // 投稿者を取得して通知を作成
+      const { data: post, error: postError } = await supabase
+        .from('posts')
+        .select('user_id')
+        .eq('id', postId)
+        .single();
+
+      if (!postError && post) {
+        // 通知を作成（エラーは無視 - いいね自体は成功しているため）
+        await createNotification({
+          userId: post.user_id,
+          type: 'like',
+          actorId: userId,
+          postId: postId,
+        });
       }
 
       return { isLiked: true, error: null };

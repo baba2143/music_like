@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { User } from '../types/models';
+import { createNotification } from './notificationService';
 
 /**
  * フォローサービス
@@ -130,6 +131,13 @@ export const toggleFollow = async (
       if (error) {
         throw error;
       }
+
+      // フォロー通知を作成（エラーは無視 - フォロー自体は成功しているため）
+      await createNotification({
+        userId: followingId,
+        type: 'follow',
+        actorId: followerId,
+      });
 
       return { isFollowing: true, error: null };
     }

@@ -18,6 +18,7 @@ import { RootStackParamList } from '../../navigation/RootNavigator';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserPosts, getSavedPosts } from '../../services/postService';
 import { getUserProfile } from '../../services/userService';
+import { getFollowersCount, getFollowingCount } from '../../services/followService';
 import { Colors, Spacing, Typography } from '../../config/theme';
 
 type MyProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +32,8 @@ export const MyProfileScreen: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [playlistPosts, setPlaylistPosts] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [playlistLoading, setPlaylistLoading] = useState(false);
@@ -46,21 +49,32 @@ export const MyProfileScreen: React.FC = () => {
     }
 
     try {
-      console.log('=== マイページ: プロフィールを取得中 ===');
+      console.log('=== マイページ: プロフィールとフォロー数を取得中 ===');
       console.log('認証ユーザーID:', user.id);
 
-      const { data, error } = await getUserProfile(user.id);
+      // プロフィール、フォロワー数、フォロー中の数を並列取得
+      const [profileResult, followersResult, followingResult] = await Promise.all([
+        getUserProfile(user.id),
+        getFollowersCount(user.id),
+        getFollowingCount(user.id),
+      ]);
 
-      if (error) {
-        console.error('プロフィール取得エラー:', error);
+      if (profileResult.error) {
+        console.error('プロフィール取得エラー:', profileResult.error);
         window.alert('エラー: プロフィールの取得に失敗しました');
         return;
       }
 
-      if (data) {
-        console.log('取得したプロフィール:', data);
-        setProfile(data);
+      if (profileResult.data) {
+        console.log('取得したプロフィール:', profileResult.data);
+        setProfile(profileResult.data);
       }
+
+      // フォロー数を設定（エラーがあっても0として扱う）
+      setFollowersCount(followersResult.count);
+      setFollowingCount(followingResult.count);
+      console.log('フォロワー数:', followersResult.count);
+      console.log('フォロー中:', followingResult.count);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
       window.alert('エラー: 予期しないエラーが発生しました');
@@ -167,6 +181,24 @@ export const MyProfileScreen: React.FC = () => {
     navigation.navigate('EditProfile');
   };
 
+  const handleFollowersPress = () => {
+    if (user?.id && profile) {
+      navigation.navigate('Followers', {
+        userId: user.id,
+        username: profile.username
+      });
+    }
+  };
+
+  const handleFollowingPress = () => {
+    if (user?.id && profile) {
+      navigation.navigate('Following', {
+        userId: user.id,
+        username: profile.username
+      });
+    }
+  };
+
   // タブ切り替えハンドラ（遅延ロード）
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
@@ -225,8 +257,10 @@ export const MyProfileScreen: React.FC = () => {
         {/* 統計情報 */}
         <ProfileStats
           postsCount={posts.length}
-          followersCount={0} // TODO: フォロー機能実装後に実データを表示
-          followingCount={0} // TODO: フォロー機能実装後に実データを表示
+          followersCount={followersCount}
+          followingCount={followingCount}
+          onFollowersPress={handleFollowersPress}
+          onFollowingPress={handleFollowingPress}
         />
 
         {/* タブ */}

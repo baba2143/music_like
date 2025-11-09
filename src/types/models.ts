@@ -16,6 +16,10 @@ export interface User {
   supporterWelcome?: 'yes' | 'no'; // 同担歓迎設定
   eventFrequency?: 'frequent' | 'sometimes' | 'rarely'; // 現場参加頻度
   createdAt: Date;
+  // フォロー関連フィールド
+  followersCount?: number; // フォロワー数
+  followingCount?: number; // フォロー中の数
+  isFollowing?: boolean; // 現在のユーザーがフォローしているか
 }
 
 // 投稿タイプ
@@ -161,4 +165,30 @@ export interface FeedResponse {
   posts: Post[];
   nextCursor?: string;
   hasMore: boolean;
+}
+
+// DM（ダイレクトメッセージ）関連の型
+export interface Conversation {
+  id: string;
+  participant1Id: string;
+  participant2Id: string;
+  participant1: User;
+  participant2: User;
+  lastMessageId?: string;
+  lastMessage?: Message;
+  lastMessageAt?: Date;
+  unreadCount?: number; // フロントエンド用
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  sender: User;
+  content: string;
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

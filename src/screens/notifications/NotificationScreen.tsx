@@ -1,130 +1,83 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { NotificationCard } from '../../components/notification/NotificationCard';
-import { Notification, User } from '../../types/models';
+import { Notification } from '../../types/models';
 import { Colors, Spacing, Typography } from '../../config/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import {
+  getNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+} from '../../services/notificationService';
 
-// ダミーユーザーデータ
-const DUMMY_USERS: User[] = [
-  {
-    id: 'user1',
-    username: 'musiclover',
-    displayName: '音楽太郎',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user2',
-    username: 'jazzfan',
-    displayName: 'ジャズ好き',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user3',
-    username: 'rockstar',
-    displayName: 'ロック魂',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user4',
-    username: 'popqueen',
-    displayName: 'ポップス女王',
-    createdAt: new Date(),
-  },
-  {
-    id: 'user5',
-    username: 'classicfan',
-    displayName: 'クラシック愛好家',
-    createdAt: new Date(),
-  },
-];
-
-// ダミー通知データ
-const DUMMY_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'notif1',
-    userId: 'currentUser',
-    type: 'like',
-    actorId: 'user1',
-    actor: DUMMY_USERS[0],
-    postId: 'post1',
-    isRead: false,
-    createdAt: new Date(Date.now() - 10 * 60 * 1000), // 10分前
-  },
-  {
-    id: 'notif2',
-    userId: 'currentUser',
-    type: 'comment',
-    actorId: 'user2',
-    actor: DUMMY_USERS[1],
-    postId: 'post1',
-    commentId: 'comment1',
-    isRead: false,
-    createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30分前
-  },
-  {
-    id: 'notif3',
-    userId: 'currentUser',
-    type: 'follow',
-    actorId: 'user3',
-    actor: DUMMY_USERS[2],
-    isRead: false,
-    createdAt: new Date(Date.now() - 60 * 60 * 1000), // 1時間前
-  },
-  {
-    id: 'notif4',
-    userId: 'currentUser',
-    type: 'like',
-    actorId: 'user4',
-    actor: DUMMY_USERS[3],
-    postId: 'post2',
-    isRead: true,
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3時間前
-  },
-  {
-    id: 'notif5',
-    userId: 'currentUser',
-    type: 'comment',
-    actorId: 'user5',
-    actor: DUMMY_USERS[4],
-    postId: 'post2',
-    commentId: 'comment2',
-    isRead: true,
-    createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6時間前
-  },
-  {
-    id: 'notif6',
-    userId: 'currentUser',
-    type: 'follow',
-    actorId: 'user1',
-    actor: DUMMY_USERS[0],
-    isRead: true,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1日前
-  },
-  {
-    id: 'notif7',
-    userId: 'currentUser',
-    type: 'like',
-    actorId: 'user2',
-    actor: DUMMY_USERS[1],
-    postId: 'post3',
-    isRead: true,
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2日前
-  },
-  {
-    id: 'notif8',
-    userId: 'currentUser',
-    type: 'mention',
-    actorId: 'user3',
-    actor: DUMMY_USERS[2],
-    postId: 'post4',
-    isRead: true,
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3日前
-  },
-];
+type NotificationScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export const NotificationScreen: React.FC = () => {
-  const [notifications, setNotifications] = useState<Notification[]>(DUMMY_NOTIFICATIONS);
+  const { user } = useAuth();
+  const navigation = useNavigation<NotificationScreenNavigationProp>();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 通知を取得
+  const fetchNotifications = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError(null);
+      const [notificationsResult, unreadResult] = await Promise.all([
+        getNotifications(user.id, 50),
+        getUnreadCount(user.id),
+      ]);
+
+      if (notificationsResult.error) {
+        console.error('通知取得エラー:', notificationsResult.error);
+        setError('通知の取得に失敗しました');
+        return;
+      }
+
+      if (notificationsResult.data) {
+        setNotifications(notificationsResult.data);
+      }
+
+      setUnreadCount(unreadResult.count);
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+      setError('予期しないエラーが発生しました');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user]);
+
+  // 初回ロード
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // リフレッシュ
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+  }, [fetchNotifications]);
 
   // フィルタリングされた通知
   const filteredNotifications =
@@ -132,29 +85,105 @@ export const NotificationScreen: React.FC = () => {
       ? notifications.filter((notif) => !notif.isRead)
       : notifications;
 
-  const handleNotificationPress = (notificationId: string) => {
-    // 通知を既読にする
+  const handleNotificationPress = async (notificationId: string) => {
+    if (!user) return;
+
+    // 通知を見つける
+    const notification = notifications.find((n) => n.id === notificationId);
+    if (!notification) return;
+
+    // 楽観的UIアップデート
     setNotifications((prevNotifications) =>
       prevNotifications.map((notif) =>
         notif.id === notificationId ? { ...notif, isRead: true } : notif
       )
     );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    // API呼び出し
+    const { error } = await markAsRead(notificationId, user.id);
+    if (error) {
+      console.error('既読マークエラー:', error);
+      // エラー時はロールバック
+      await fetchNotifications();
+    }
+
+    // 通知タイプに応じて遷移
+    switch (notification.type) {
+      case 'like':
+      case 'comment':
+      case 'mention':
+        // 投稿詳細画面へ遷移
+        if (notification.postId) {
+          navigation.navigate('PostDetail', { postId: notification.postId });
+        }
+        break;
+      case 'follow':
+        // フォローしたユーザーのプロフィール画面へ遷移
+        navigation.navigate('UserProfile', { userId: notification.actorId });
+        break;
+      default:
+        break;
+    }
   };
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
+    if (!user) return;
+
+    // 楽観的UIアップデート
     setNotifications((prevNotifications) =>
       prevNotifications.map((notif) => ({ ...notif, isRead: true }))
     );
-  };
+    setUnreadCount(0);
 
-  const unreadCount = notifications.filter((notif) => !notif.isRead).length;
+    // API呼び出し
+    const { error } = await markAllAsRead(user.id);
+    if (error) {
+      console.error('すべて既読エラー:', error);
+      // エラー時はロールバック
+      await fetchNotifications();
+    }
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🔔</Text>
-      <Text style={styles.emptyText}>通知はありません</Text>
+      {error ? (
+        <>
+          <Text style={styles.emptyText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchNotifications}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <>
+          <Text style={styles.emptyIcon}>🔔</Text>
+          <Text style={styles.emptyText}>通知はありません</Text>
+        </>
+      )}
     </View>
   );
+
+  // ユーザーが未ログインの場合
+  if (!user) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.emptyText}>ログインが必要です</Text>
+      </View>
+    );
+  }
+
+  // ローディング中
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -202,6 +231,14 @@ export const NotificationScreen: React.FC = () => {
         )}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={renderEmpty}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -212,6 +249,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -266,6 +307,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: Spacing.huge,
+    paddingHorizontal: Spacing.xl,
   },
   emptyIcon: {
     fontSize: 48,
@@ -274,5 +316,18 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: Typography.fontSize.base,
     color: '#808080',
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  retryButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    fontSize: Typography.fontSize.base,
+    color: Colors.white,
+    fontWeight: Typography.fontWeight.semiBold,
   },
 });

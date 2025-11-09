@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { Comment, User } from '../types/models';
+import { createNotification } from './notificationService';
 
 /**
  * コメントサービス
@@ -58,6 +59,24 @@ export const createComment = async (
     }
 
     const comment = mapDatabaseCommentToComment(data);
+
+    // 投稿者を取得して通知を作成
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('id', params.postId)
+      .single();
+
+    if (!postError && post) {
+      // 通知を作成（エラーは無視 - コメント自体は成功しているため）
+      await createNotification({
+        userId: post.user_id,
+        type: 'comment',
+        actorId: params.userId,
+        postId: params.postId,
+        commentId: comment.id,
+      });
+    }
 
     return { data: comment, error: null };
   } catch (error) {

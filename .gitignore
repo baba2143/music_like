@@ -88,6 +88,9 @@ supabase/.temp
 *.swo
 *~
 
+# Serena MCP
+.serena/
+
 # Logs
 logs
 *.log

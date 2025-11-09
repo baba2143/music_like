@@ -11,10 +11,16 @@ import { SearchScreen } from '../screens/search/SearchScreen';
 import { NotificationScreen } from '../screens/notifications/NotificationScreen';
 import { MyProfileScreen } from '../screens/profile/MyProfileScreen';
 import { EditProfileScreen } from '../screens/profile/EditProfileScreen';
+import { UserProfileScreen } from '../screens/profile/UserProfileScreen';
+import { FollowersScreen } from '../screens/profile/FollowersScreen';
+import { FollowingScreen } from '../screens/profile/FollowingScreen';
 import { PostDetailScreen } from '../screens/post/PostDetailScreen';
 import { CreatePostScreen } from '../screens/post/CreatePostScreen';
 import { EditPostScreen } from '../screens/post/EditPostScreen';
+import { MessagesScreen } from '../screens/messages/MessagesScreen';
+import { ChatScreen } from '../screens/messages/ChatScreen';
 import { Colors, Typography } from '../config/theme';
+import { User } from '../types/models';
 
 // ルートスタック画面の型定義
 export type RootStackParamList = {
@@ -27,6 +33,10 @@ export type RootStackParamList = {
   CreatePost: undefined;
   EditPost: { postId: string };
   EditProfile: undefined;
+  UserProfile: { userId: string };
+  Followers: { userId: string; username?: string };
+  Following: { userId: string; username?: string };
+  Chat: { conversationId?: string; otherUser: User };
 };
 
 // タブ画面の型定義
@@ -34,6 +44,7 @@ export type MainTabParamList = {
   Home: undefined;
   Search: undefined;
   Post: undefined;
+  Messages: undefined;
   Notifications: undefined;
   Profile: undefined;
 };
@@ -48,6 +59,7 @@ const PostPlaceholder = () => null;
 const HomeIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🏠</Text>;
 const SearchIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>🔍</Text>;
 const PostIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>➕</Text>;
+const MessagesIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>💬</Text>;
 const NotificationIcon = ({ size }: { size: number }) => (
   <Text style={{ fontSize: size }}>🔔</Text>
 );
@@ -104,6 +116,14 @@ const MainTabs = () => {
         }}
       />
       <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          tabBarLabel: 'DM',
+          tabBarIcon: MessagesIcon,
+        }}
+      />
+      <Tab.Screen
         name="Notifications"
         component={NotificationScreen}
         options={{
@@ -140,6 +160,10 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="CreatePost" component={CreatePostScreen} />
       <Stack.Screen name="EditPost" component={EditPostScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+      <Stack.Screen name="Followers" component={FollowersScreen} />
+      <Stack.Screen name="Following" component={FollowingScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
     </Stack.Navigator>
   );
 };
