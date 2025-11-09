@@ -355,15 +355,6 @@ export const CreatePostScreen: React.FC = () => {
               autoCorrect={false}
             />
 
-            <Text style={styles.inputLabel}>プレイリスト名 *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例: お気に入りの曲たち"
-              placeholderTextColor="#808080"
-              value={playlistTitle}
-              onChangeText={setPlaylistTitle}
-            />
-
             {/* プレビュー取得ボタン */}
             <TouchableOpacity
               style={[styles.previewButton, isFetchingMetadata && styles.previewButtonDisabled]}
@@ -377,6 +368,15 @@ export const CreatePostScreen: React.FC = () => {
                 <Text style={styles.previewButtonText}>📥 URLからプレビューを取得</Text>
               )}
             </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>プレイリスト名 *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="例: お気に入りの曲たち"
+              placeholderTextColor="#808080"
+              value={playlistTitle}
+              onChangeText={setPlaylistTitle}
+            />
           </View>
         )}
 
