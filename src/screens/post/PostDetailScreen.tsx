@@ -1,109 +1,210 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Post, Comment } from '../../types/models';
 import { CommentCard } from '../../components/post/CommentCard';
 import { CommentInput } from '../../components/post/CommentInput';
 import { Colors, Typography, Spacing } from '../../config/theme';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  getPost,
+  getPostComments,
+  createComment,
+  toggleLike,
+  toggleSave,
+} from '../../services/postService';
+import { RootStackParamList } from '../../navigation/RootNavigator';
+import { getRelativeTime } from '../../utils/mockData';
+import { Linking } from 'react-native';
 
-// ダミーデータ
-const DUMMY_POST: Post = {
-  id: '1',
-  userId: 'user1',
-  author: {
-    id: 'user1',
-    username: 'musiclover',
-    displayName: '音楽太郎',
-    avatarUrl: undefined,
-    createdAt: new Date(),
-  },
-  contentType: 'playlist',
-  caption: '最近のお気に入りプレイリスト🎵\nドライブ中に聴きたい曲を集めました！',
-  playlistTitle: 'Chill Vibes for Drive',
-  playlistThumbnail: 'https://via.placeholder.com/300',
-  playlistTrackCount: 25,
-  playlistService: 'spotify',
-  likesCount: 142,
-  commentsCount: 23,
-  savesCount: 56,
-  isLiked: false,
-  isSaved: false,
-  createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2時間前
-  updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-};
-
-const DUMMY_COMMENTS: Comment[] = [
-  {
-    id: 'c1',
-    postId: '1',
-    userId: 'user2',
-    author: {
-      id: 'user2',
-      username: 'jazzfan',
-      displayName: 'ジャズ好き',
-      createdAt: new Date(),
-    },
-    content: 'このプレイリスト最高！ドライブが楽しくなりそう😊',
-    createdAt: new Date(Date.now() - 60 * 60 * 1000), // 1時間前
-  },
-  {
-    id: 'c2',
-    postId: '1',
-    userId: 'user3',
-    author: {
-      id: 'user3',
-      username: 'rockstar',
-      displayName: 'ロック魂',
-      createdAt: new Date(),
-    },
-    content: 'Spotifyでフォローしました！',
-    createdAt: new Date(Date.now() - 45 * 60 * 1000), // 45分前
-  },
-  {
-    id: 'c3',
-    postId: '1',
-    userId: 'user4',
-    author: {
-      id: 'user4',
-      username: 'popqueen',
-      displayName: 'ポップス女王',
-      createdAt: new Date(),
-    },
-    content: '同じようなプレイリスト作ってます！趣味が合いそう🎶',
-    createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30分前
-  },
-];
+type PostDetailScreenRouteProp = RouteProp<RootStackParamList, 'PostDetail'>;
 
 export const PostDetailScreen: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute<PostDetailScreenRouteProp>();
+  const { user } = useAuth();
+  const { postId } = route.params;
+
+  const [post, setPost] = useState<Post | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  // 投稿データを取得
+  const fetchPost = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await getPost(postId, user?.id);
+
+      if (error) {
+        console.error('投稿取得エラー:', error);
+        window.alert('エラー: 投稿の取得に失敗しました');
+        navigation.goBack();
+        return;
+      }
+
+      if (data) {
+        setPost(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch post:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  }, [postId, user, navigation]);
+
+  // コメント一覧を取得
+  const fetchComments = useCallback(async () => {
+    try {
+      setCommentsLoading(true);
+      const { data, error } = await getPostComments(postId);
+
+      if (error) {
+        console.error('コメント取得エラー:', error);
+        return;
+      }
+
+      if (data) {
+        setComments(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch comments:', error);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [postId]);
+
+  // 初回ロード
+  useEffect(() => {
+    fetchPost();
+    fetchComments();
+  }, [fetchPost, fetchComments]);
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleLike = () => {
-    Alert.alert('準備中', 'いいね機能は準備中です');
+  const handleLike = async () => {
+    if (!user || !post) {
+      window.alert('ログインが必要です');
+      return;
+    }
+
+    try {
+      const { isLiked, error } = await toggleLike(post.id, user.id);
+
+      if (error) {
+        console.error('いいねエラー:', error);
+        window.alert('エラー: いいねに失敗しました');
+        return;
+      }
+
+      // ローカルステートを更新
+      setPost({
+        ...post,
+        isLiked,
+        likesCount: isLiked ? post.likesCount + 1 : post.likesCount - 1,
+      });
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
   };
 
-  const handleComment = () => {
-    Alert.alert('準備中', 'コメント機能は準備中です');
+  const handleSave = async () => {
+    if (!user || !post) {
+      window.alert('ログインが必要です');
+      return;
+    }
+
+    try {
+      const { isSaved, error } = await toggleSave(post.id, user.id);
+
+      if (error) {
+        console.error('保存エラー:', error);
+        window.alert('エラー: 保存に失敗しました');
+        return;
+      }
+
+      // ローカルステートを更新
+      setPost({
+        ...post,
+        isSaved,
+        savesCount: isSaved ? post.savesCount + 1 : post.savesCount - 1,
+      });
+    } catch (error) {
+      console.error('Failed to toggle save:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
   };
 
-  const handleSave = () => {
-    Alert.alert('準備中', '保存機能は準備中です');
+  const handleCommentSubmit = async (content: string) => {
+    if (!user || !post) {
+      window.alert('ログインが必要です');
+      return;
+    }
+
+    try {
+      setSubmittingComment(true);
+      const { data, error } = await createComment(post.id, user.id, content);
+
+      if (error) {
+        console.error('コメント投稿エラー:', error);
+        window.alert('エラー: コメントの投稿に失敗しました');
+        return;
+      }
+
+      if (data) {
+        // コメントリストの先頭に追加
+        setComments([data, ...comments]);
+        // 投稿のコメント数を更新
+        setPost({
+          ...post,
+          commentsCount: post.commentsCount + 1,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create comment:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    } finally {
+      setSubmittingComment(false);
+    }
   };
 
   const handlePlaylistPress = () => {
-    Alert.alert('準備中', 'プレイリスト再生機能は準備中です');
+    if (post?.playlistUrl) {
+      Linking.openURL(post.playlistUrl);
+    } else if (post?.trackUrl) {
+      Linking.openURL(post.trackUrl);
+    }
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  if (!post) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>投稿が見つかりませんでした</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -118,80 +219,123 @@ export const PostDetailScreen: React.FC = () => {
 
       {/* スクロール可能なコンテンツ */}
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* プレイリスト情報 */}
-        <TouchableOpacity
-          style={styles.playlistSection}
-          onPress={handlePlaylistPress}
-          activeOpacity={0.8}
-        >
-          {/* サムネイル */}
-          <View style={styles.thumbnail}>
-            <View style={styles.placeholderImage}>
-              <Text style={styles.placeholderText}>🎵</Text>
+        {/* プレイリスト/トラック情報 */}
+        {(post.contentType === 'playlist' || post.contentType === 'track') && (
+          <TouchableOpacity
+            style={styles.playlistSection}
+            onPress={handlePlaylistPress}
+            activeOpacity={0.8}
+          >
+            {/* サムネイル */}
+            <View style={styles.thumbnail}>
+              {post.playlistThumbnail || post.trackThumbnail ? (
+                <Image
+                  source={{ uri: post.playlistThumbnail || post.trackThumbnail || '' }}
+                  style={styles.thumbnailImage}
+                />
+              ) : (
+                <View style={styles.placeholderImage}>
+                  <Text style={styles.placeholderText}>🎵</Text>
+                </View>
+              )}
             </View>
-          </View>
 
-          {/* プレイリスト詳細 */}
-          <View style={styles.playlistInfo}>
-            <Text style={styles.playlistTitle}>{DUMMY_POST.playlistTitle}</Text>
-            <Text style={styles.playlistDetails}>
-              {DUMMY_POST.playlistTrackCount}曲 · Spotify
-            </Text>
-          </View>
-        </TouchableOpacity>
+            {/* プレイリスト/トラック詳細 */}
+            <View style={styles.playlistInfo}>
+              <Text style={styles.playlistTitle}>
+                {post.playlistTitle || post.trackTitle}
+              </Text>
+              {post.contentType === 'playlist' ? (
+                <Text style={styles.playlistDetails}>
+                  {post.playlistTrackCount}曲 ·{' '}
+                  {post.playlistService === 'spotify'
+                    ? 'Spotify'
+                    : post.playlistService === 'apple_music'
+                    ? 'Apple Music'
+                    : 'YouTube Music'}
+                </Text>
+              ) : (
+                <Text style={styles.playlistDetails}>{post.trackArtist}</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* 投稿者情報 */}
         <View style={styles.postInfo}>
           {/* ユーザー */}
           <View style={styles.userInfo}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {DUMMY_POST.author.username.charAt(0).toUpperCase()}
-              </Text>
+              {post.author.avatarUrl ? (
+                <Image source={{ uri: post.author.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {post.author.username.charAt(0).toUpperCase()}
+                </Text>
+              )}
             </View>
             <View>
-              <Text style={styles.username}>{DUMMY_POST.author.username}</Text>
-              <Text style={styles.timestamp}>2時間前</Text>
+              <Text style={styles.username}>@{post.author.username}</Text>
+              <Text style={styles.timestamp}>{getRelativeTime(post.createdAt)}</Text>
             </View>
           </View>
 
           {/* キャプション */}
-          {DUMMY_POST.caption && <Text style={styles.caption}>{DUMMY_POST.caption}</Text>}
+          {post.caption && <Text style={styles.caption}>{post.caption}</Text>}
+
+          {/* ハッシュタグ */}
+          {post.hashtags && post.hashtags.length > 0 && (
+            <View style={styles.hashtags}>
+              {post.hashtags.map((tag) => (
+                <Text key={tag} style={styles.hashtag}>
+                  #{tag}{' '}
+                </Text>
+              ))}
+            </View>
+          )}
 
           {/* アクションボタン */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.actionButton} onPress={handleLike} activeOpacity={0.7}>
-              <Text style={styles.actionIcon}>♡</Text>
-              <Text style={styles.actionCount}>{DUMMY_POST.likesCount}</Text>
+              <Text style={[styles.actionIcon, post.isLiked && styles.actionIconActive]}>
+                {post.isLiked ? '❤️' : '🤍'}
+              </Text>
+              <Text style={styles.actionCount}>{post.likesCount}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleComment}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.actionButton} activeOpacity={0.7}>
               <Text style={styles.actionIcon}>💬</Text>
-              <Text style={styles.actionCount}>{DUMMY_POST.commentsCount}</Text>
+              <Text style={styles.actionCount}>{post.commentsCount}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.actionButton} onPress={handleSave} activeOpacity={0.7}>
-              <Text style={styles.actionIcon}>🔖</Text>
-              <Text style={styles.actionCount}>{DUMMY_POST.savesCount}</Text>
+              <Text style={[styles.actionIcon, post.isSaved && styles.actionIconActive]}>
+                {post.isSaved ? '🔖' : '📑'}
+              </Text>
+              <Text style={styles.actionCount}>保存</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* コメント一覧 */}
         <View style={styles.commentsSection}>
-          <Text style={styles.commentsTitle}>コメント ({DUMMY_COMMENTS.length})</Text>
-          {DUMMY_COMMENTS.map((comment) => (
-            <CommentCard key={comment.id} comment={comment} />
-          ))}
+          <Text style={styles.commentsTitle}>コメント ({comments.length})</Text>
+          {commentsLoading ? (
+            <View style={styles.commentsLoading}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : comments.length === 0 ? (
+            <View style={styles.emptyComments}>
+              <Text style={styles.emptyCommentsText}>まだコメントはありません</Text>
+            </View>
+          ) : (
+            comments.map((comment) => <CommentCard key={comment.id} comment={comment} />)
+          )}
         </View>
       </ScrollView>
 
       {/* コメント入力 */}
-      <CommentInput />
+      <CommentInput onSubmit={handleCommentSubmit} />
     </View>
   );
 };
@@ -200,6 +344,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  errorText: {
+    fontSize: Typography.fontSize.base,
+    color: Colors.white,
   },
   header: {
     flexDirection: 'row',
@@ -244,6 +404,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     overflow: 'hidden',
   },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
   placeholderImage: {
     flex: 1,
     justifyContent: 'center',
@@ -283,6 +447,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: Typography.fontSize.base,
@@ -304,6 +473,16 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: Spacing.md,
   },
+  hashtags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: Spacing.md,
+  },
+  hashtag: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.primary,
+    marginRight: Spacing.xs,
+  },
   actions: {
     flexDirection: 'row',
     gap: Spacing.lg,
@@ -315,6 +494,9 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     fontSize: 20,
+  },
+  actionIconActive: {
+    transform: [{ scale: 1.1 }],
   },
   actionCount: {
     fontSize: Typography.fontSize.sm,
@@ -329,5 +511,17 @@ const styles = StyleSheet.create({
     color: Colors.white,
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.sm,
+  },
+  commentsLoading: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+  },
+  emptyComments: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
+  },
+  emptyCommentsText: {
+    fontSize: Typography.fontSize.sm,
+    color: '#808080',
   },
 });

@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { Post, CreatePostInput, FeedResponse, User } from '../types/models';
+import { Post, CreatePostInput, FeedResponse, User, Comment } from '../types/models';
 
 /**
  * 投稿サービス
@@ -593,3 +593,157 @@ function mapDatabasePostToPost(
     updatedAt: new Date(data.updated_at),
   };
 }
+
+/**
+ * 投稿のコメント一覧を取得
+ */
+export const getPostComments = async (
+  postId: string
+): Promise<{ data: Comment[] | null; error: Error | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('comments')
+      .select(
+        `
+        *,
+        users!comments_user_id_fkey (
+          id,
+          username,
+          display_name,
+          avatar_url,
+          bio,
+          oshi_group,
+          oshi_member,
+          created_at
+        )
+      `
+      )
+      .eq('post_id', postId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    const mappedComments: Comment[] = data.map((comment: any) => ({
+      id: comment.id,
+      postId: comment.post_id,
+      userId: comment.user_id,
+      author: {
+        id: comment.users.id,
+        username: comment.users.username,
+        displayName: comment.users.display_name,
+        avatarUrl: comment.users.avatar_url,
+        bio: comment.users.bio,
+        oshiGroup: comment.users.oshi_group,
+        oshiMember: comment.users.oshi_member,
+        createdAt: new Date(comment.users.created_at),
+      },
+      content: comment.content,
+      createdAt: new Date(comment.created_at),
+    }));
+
+    return { data: mappedComments, error: null };
+  } catch (error) {
+    console.error('Failed to get comments:', error);
+    return { data: null, error: error as Error };
+  }
+};
+
+/**
+ * コメントを作成
+ */
+export const createComment = async (
+  postId: string,
+  userId: string,
+  content: string
+): Promise<{ data: Comment | null; error: Error | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({
+        post_id: postId,
+        user_id: userId,
+        content,
+      })
+      .select(
+        `
+        *,
+        users!comments_user_id_fkey (
+          id,
+          username,
+          display_name,
+          avatar_url,
+          bio,
+          oshi_group,
+          oshi_member,
+          created_at
+        )
+      `
+      )
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    const mappedComment: Comment = {
+      id: data.id,
+      postId: data.post_id,
+      userId: data.user_id,
+      author: {
+        id: data.users.id,
+        username: data.users.username,
+        displayName: data.users.display_name,
+        avatarUrl: data.users.avatar_url,
+        bio: data.users.bio,
+        oshiGroup: data.users.oshi_group,
+        oshiMember: data.users.oshi_member,
+        createdAt: new Date(data.users.created_at),
+      },
+      content: data.content,
+      createdAt: new Date(data.created_at),
+    };
+
+    return { data: mappedComment, error: null };
+  } catch (error) {
+    console.error('Failed to create comment:', error);
+    return { data: null, error: error as Error };
+  }
+};
+
+/**
+ * コメントを削除
+ */
+export const deleteComment = async (
+  commentId: string,
+  userId: string
+): Promise<{ error: Error | null }> => {
+  try {
+    // 自分のコメントか確認
+    const { data: comment, error: checkError } = await supabase
+      .from('comments')
+      .select('user_id')
+      .eq('id', commentId)
+      .single();
+
+    if (checkError) {
+      throw checkError;
+    }
+
+    if (comment.user_id !== userId) {
+      throw new Error('You can only delete your own comments');
+    }
+
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+
+    if (error) {
+      throw error;
+    }
+
+    return { error: null };
+  } catch (error) {
+    console.error('Failed to delete comment:', error);
+    return { error: error as Error };
+  }
+};
