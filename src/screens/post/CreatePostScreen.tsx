@@ -344,15 +344,6 @@ export const CreatePostScreen: React.FC = () => {
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>プレイリスト名 *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例: お気に入りの曲たち"
-              placeholderTextColor="#808080"
-              value={playlistTitle}
-              onChangeText={setPlaylistTitle}
-            />
-
             <Text style={styles.inputLabel}>プレイリストURL *</Text>
             <TextInput
               style={styles.input}
@@ -362,6 +353,15 @@ export const CreatePostScreen: React.FC = () => {
               onChangeText={setPlaylistUrl}
               autoCapitalize="none"
               autoCorrect={false}
+            />
+
+            <Text style={styles.inputLabel}>プレイリスト名 *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="例: お気に入りの曲たち"
+              placeholderTextColor="#808080"
+              value={playlistTitle}
+              onChangeText={setPlaylistTitle}
             />
 
             {/* プレビュー取得ボタン */}
