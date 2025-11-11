@@ -322,7 +322,7 @@ export const EditProfileScreen: React.FC = () => {
           onChangeText={setBio}
           placeholder="自己紹介を入力"
           placeholderTextColor="#666666"
-          multiline
+          multiline={true}
           numberOfLines={4}
           textAlignVertical="top"
           maxLength={500}
@@ -391,7 +391,7 @@ export const EditProfileScreen: React.FC = () => {
               borderWidth: 1,
               borderColor: '#2A2A2A',
               borderStyle: 'solid',
-              width: '100%',
+              flex: 1,
               fontFamily: 'inherit',
             }}
           />

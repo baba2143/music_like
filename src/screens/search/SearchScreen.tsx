@@ -13,40 +13,106 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SearchBar } from '../../components/search/SearchBar';
 import { UserSearchCard } from '../../components/search/UserSearchCard';
 import { PostSearchCard } from '../../components/search/PostSearchCard';
+import { IdolGroupTag } from '../../components/search/IdolGroupTag';
+import { PlaylistCard } from '../../components/search/PlaylistCard';
+import { RecommendedUserCard } from '../../components/search/RecommendedUserCard';
 import { User, Post } from '../../types/models';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { SearchStackParamList } from '../../navigation/RootNavigator';
 import { Colors, Spacing, Typography } from '../../config/theme';
 import { searchUsers } from '../../services/userService';
 import { getFeedPosts } from '../../services/postService';
+import { toggleFollow, checkIsFollowing } from '../../services/followService';
 import { useAuth } from '../../contexts/AuthContext';
 
-type SearchScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type SearchScreenNavigationProp = NativeStackNavigationProp<SearchStackParamList>;
 
-type TabType = 'all' | 'users' | 'posts' | 'hashtags';
+type TabType = 'posts' | 'playlists' | 'users';
+
+// 仮データ
+const IDOL_GROUPS = ['乃木坂46', '櫻坂46', '日向坂46', 'IVE', 'TWICE', 'NewJeans'];
+
+const MOCK_PLAYLISTS = [
+  { id: '1', title: 'Summer Hits 2024', author: 'vdkr_7' },
+  { id: '2', title: 'Upbeat J-Pop Mix', author: 'idol_fan_22' },
+  { id: '3', title: 'K-Pop Favorites', author: 'kpop_lover' },
+  { id: '4', title: 'Chill Vibes', author: 'music_curator' },
+  { id: '5', title: 'Party Mix', author: 'dj_mike' },
+];
+
+const MOCK_RECOMMENDED_USERS: User[] = [
+  {
+    id: 'rec1',
+    username: 'aiko_music',
+    displayName: 'Aiko',
+    bio: '音楽好き',
+    oshiGroup: '乃木坂46',
+    oshiMember: undefined,
+    avatarUrl: undefined,
+    createdAt: new Date(),
+  },
+  {
+    id: 'rec2',
+    username: 'Tsubasa_idol',
+    displayName: 'Tsubasa',
+    bio: 'アイドル好き',
+    oshiGroup: '櫻坂46',
+    oshiMember: undefined,
+    avatarUrl: undefined,
+    createdAt: new Date(),
+  },
+  {
+    id: 'rec3',
+    username: 'haru_oshi',
+    displayName: 'Haru',
+    bio: 'K-POP好き',
+    oshiGroup: 'IVE',
+    oshiMember: undefined,
+    avatarUrl: undefined,
+    createdAt: new Date(),
+  },
+  {
+    id: 'rec4',
+    username: 'music_fan99',
+    displayName: 'Music Fan',
+    bio: '音楽好き',
+    oshiGroup: undefined,
+    oshiMember: undefined,
+    avatarUrl: undefined,
+    createdAt: new Date(),
+  },
+  {
+    id: 'rec5',
+    username: 'jpop_lover',
+    displayName: 'J-Pop Lover',
+    bio: 'J-POP好き',
+    oshiGroup: '日向坂46',
+    oshiMember: undefined,
+    avatarUrl: undefined,
+    createdAt: new Date(),
+  },
+];
 
 export const SearchScreen: React.FC = () => {
   const navigation = useNavigation<SearchScreenNavigationProp>();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [activeTab, setActiveTab] = useState<TabType>('posts');
   const [users, setUsers] = useState<User[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [hashtagPosts, setHashtagPosts] = useState<Post[]>([]);
+  const [playlistPosts, setPlaylistPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
 
   // Debounce用のrefとタイマー
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // ハッシュタグ検索かどうかを判定
-  const isHashtagSearch = searchQuery.trim().startsWith('#');
 
   // 検索実行（API呼び出し）
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setUsers([]);
       setPosts([]);
-      setHashtagPosts([]);
+      setPlaylistPosts([]);
       setError(null);
       return;
     }
@@ -55,58 +121,50 @@ export const SearchScreen: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // ハッシュタグ検索の場合
-      const isHashtag = query.trim().startsWith('#');
-      const hashtag = isHashtag ? query.trim().substring(1).toLowerCase() : '';
+      // ユーザーと投稿を並列取得
+      const [usersResult, postsResult] = await Promise.all([
+        searchUsers(query, 50),
+        getFeedPosts(user?.id, 50),
+      ]);
 
-      if (isHashtag && hashtag) {
-        // ハッシュタグ検索のみ実行
-        const postsResult = await getFeedPosts(user?.id, 50);
-
-        if (postsResult.error) {
-          console.error('ハッシュタグ検索エラー:', postsResult.error);
-        } else if (postsResult.data) {
-          // ハッシュタグで完全一致または部分一致
-          const hashtagFiltered = postsResult.data.posts.filter((post) =>
-            post.hashtags?.some((tag) => tag.toLowerCase().includes(hashtag))
-          );
-          setHashtagPosts(hashtagFiltered);
-          setUsers([]);
-          setPosts([]);
-        }
+      if (usersResult.error) {
+        console.error('ユーザー検索エラー:', usersResult.error);
       } else {
-        // 通常検索（ユーザーと投稿）
-        const [usersResult, postsResult] = await Promise.all([
-          searchUsers(query, 20),
-          getFeedPosts(user?.id, 20),
-        ]);
+        setUsers(usersResult.data);
+      }
 
-        if (usersResult.error) {
-          console.error('ユーザー検索エラー:', usersResult.error);
-        } else {
-          setUsers(usersResult.data);
-        }
+      if (postsResult.error) {
+        console.error('投稿検索エラー:', postsResult.error);
+      } else if (postsResult.data) {
+        const searchLower = query.toLowerCase();
 
-        if (postsResult.error) {
-          console.error('投稿検索エラー:', postsResult.error);
-        } else if (postsResult.data) {
-          // 投稿はキャプションやハッシュタグで絞り込み
-          const filteredPosts = postsResult.data.posts.filter((post) => {
-            const searchLower = query.toLowerCase();
-            return (
-              post.caption?.toLowerCase().includes(searchLower) ||
-              post.hashtags?.some((tag) => tag.toLowerCase().includes(searchLower)) ||
-              post.playlistTitle?.toLowerCase().includes(searchLower) ||
-              post.trackTitle?.toLowerCase().includes(searchLower) ||
-              post.trackArtist?.toLowerCase().includes(searchLower) ||
-              post.author.username.toLowerCase().includes(searchLower) ||
-              post.author.displayName?.toLowerCase().includes(searchLower)
-            );
-          });
-          setPosts(filteredPosts);
-        }
+        // 投稿を絞り込み（プレイリスト以外）
+        const filteredPosts = postsResult.data.posts.filter((post) => {
+          const matchesSearch =
+            post.caption?.toLowerCase().includes(searchLower) ||
+            post.hashtags?.some((tag) => tag.toLowerCase().includes(searchLower)) ||
+            post.trackTitle?.toLowerCase().includes(searchLower) ||
+            post.trackArtist?.toLowerCase().includes(searchLower) ||
+            post.author.username.toLowerCase().includes(searchLower) ||
+            post.author.displayName?.toLowerCase().includes(searchLower);
 
-        setHashtagPosts([]);
+          return matchesSearch && post.contentType !== 'playlist';
+        });
+
+        // プレイリスト投稿を絞り込み
+        const filteredPlaylists = postsResult.data.posts.filter((post) => {
+          const matchesSearch =
+            post.caption?.toLowerCase().includes(searchLower) ||
+            post.hashtags?.some((tag) => tag.toLowerCase().includes(searchLower)) ||
+            post.playlistTitle?.toLowerCase().includes(searchLower) ||
+            post.author.username.toLowerCase().includes(searchLower) ||
+            post.author.displayName?.toLowerCase().includes(searchLower);
+
+          return matchesSearch && post.contentType === 'playlist';
+        });
+
+        setPosts(filteredPosts);
+        setPlaylistPosts(filteredPlaylists);
       }
     } catch (err) {
       console.error('検索エラー:', err);
@@ -148,11 +206,109 @@ export const SearchScreen: React.FC = () => {
     setSearchQuery('');
     setUsers([]);
     setPosts([]);
-    setHashtagPosts([]);
+    setPlaylistPosts([]);
     setError(null);
   };
 
-  // タブに応じた表示内容
+  const handleIdolGroupTagPress = (groupName: string) => {
+    setSearchQuery(groupName);
+    setActiveTab('posts');
+  };
+
+  const handlePlaylistPress = (playlistId: string) => {
+    // TODO: プレイリスト詳細画面に遷移
+    console.log('Playlist pressed:', playlistId);
+  };
+
+  const handleFollowToggle = async (userId: string) => {
+    if (!user) {
+      window.alert('ログインが必要です');
+      return;
+    }
+
+    try {
+      const { isFollowing, error } = await toggleFollow(user.id, userId);
+
+      if (error) {
+        console.error('フォロー切り替えエラー:', error);
+        window.alert('エラー: フォローの切り替えに失敗しました');
+        return;
+      }
+
+      setFollowingMap((prev) => ({
+        ...prev,
+        [userId]: isFollowing,
+      }));
+    } catch (err) {
+      console.error('Failed to toggle follow:', err);
+      window.alert('エラー: 予期しないエラーが発生しました');
+    }
+  };
+
+  // デフォルトビュー（検索が空の時）
+  const renderDefaultView = () => {
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.defaultView}>
+        {/* 人気のアイドルグループ */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>人気のアイドルグループ</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll}>
+            {IDOL_GROUPS.map((group) => (
+              <IdolGroupTag key={group} name={group} onPress={handleIdolGroupTagPress} />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* 人気プレイリスト */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>人気プレイリスト</Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={styles.moreText}>もっと見る</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.playlistsScroll}
+          >
+            {MOCK_PLAYLISTS.map((playlist) => (
+              <PlaylistCard
+                key={playlist.id}
+                id={playlist.id}
+                title={playlist.title}
+                author={playlist.author}
+                onPress={handlePlaylistPress}
+              />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* おすすめユーザー */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>おすすめユーザー</Text>
+            <TouchableOpacity activeOpacity={0.7}>
+              <Text style={styles.moreText}>もっと見る</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.usersScroll}>
+            {MOCK_RECOMMENDED_USERS.map((recommendedUser) => (
+              <RecommendedUserCard
+                key={recommendedUser.id}
+                user={recommendedUser}
+                isFollowing={followingMap[recommendedUser.id] || false}
+                onPress={handleUserPress}
+                onFollow={handleFollowToggle}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      </ScrollView>
+    );
+  };
+
+  // タブに応じた表示内容（検索結果）
   const renderContent = () => {
     // ローディング中
     if (loading) {
@@ -180,12 +336,42 @@ export const SearchScreen: React.FC = () => {
       );
     }
 
-    // 検索クエリが空の場合
+    // 検索クエリが空の場合はデフォルトビュー
     if (!searchQuery.trim()) {
+      return renderDefaultView();
+    }
+
+    // 投稿タブ
+    if (activeTab === 'posts') {
       return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>ユーザーや曲を検索してみましょう</Text>
-        </View>
+        <FlatList
+          data={posts}
+          renderItem={({ item }) => <PostSearchCard post={item} onPress={handlePostPress} />}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>投稿が見つかりません</Text>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
+      );
+    }
+
+    // プレイリストタブ
+    if (activeTab === 'playlists') {
+      return (
+        <FlatList
+          data={playlistPosts}
+          renderItem={({ item }) => <PostSearchCard post={item} onPress={handlePostPress} />}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>プレイリストが見つかりません</Text>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+        />
       );
     }
 
@@ -206,120 +392,7 @@ export const SearchScreen: React.FC = () => {
       );
     }
 
-    // 投稿タブ
-    if (activeTab === 'posts') {
-      return (
-        <FlatList
-          data={posts}
-          renderItem={({ item }) => <PostSearchCard post={item} onPress={handlePostPress} />}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>投稿が見つかりません</Text>
-            </View>
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      );
-    }
-
-    // ハッシュタグタブ
-    if (activeTab === 'hashtags') {
-      return (
-        <FlatList
-          data={hashtagPosts}
-          renderItem={({ item }) => <PostSearchCard post={item} onPress={handlePostPress} />}
-          keyExtractor={(item) => item.id}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {isHashtagSearch
-                  ? 'このハッシュタグを含む投稿が見つかりません'
-                  : '#を入力してハッシュタグを検索'}
-              </Text>
-            </View>
-          }
-          showsVerticalScrollIndicator={false}
-        />
-      );
-    }
-
-    // すべてタブ
-    return (
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* ハッシュタグ検索の場合 */}
-        {isHashtagSearch && hashtagPosts.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>ハッシュタグ投稿</Text>
-            {hashtagPosts.slice(0, 5).map((post) => (
-              <PostSearchCard key={post.id} post={post} onPress={handlePostPress} />
-            ))}
-            {hashtagPosts.length > 5 && (
-              <TouchableOpacity
-                style={styles.showMoreButton}
-                onPress={() => setActiveTab('hashtags')}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.showMoreText}>もっと見る</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* 通常検索の場合 */}
-        {!isHashtagSearch && (
-          <>
-            {users.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ユーザー</Text>
-                {users.slice(0, 3).map((user) => (
-                  <UserSearchCard key={user.id} user={user} onPress={handleUserPress} />
-                ))}
-                {users.length > 3 && (
-                  <TouchableOpacity
-                    style={styles.showMoreButton}
-                    onPress={() => setActiveTab('users')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.showMoreText}>もっと見る</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {posts.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>投稿</Text>
-                {posts.slice(0, 3).map((post) => (
-                  <PostSearchCard key={post.id} post={post} onPress={handlePostPress} />
-                ))}
-                {posts.length > 3 && (
-                  <TouchableOpacity
-                    style={styles.showMoreButton}
-                    onPress={() => setActiveTab('posts')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.showMoreText}>もっと見る</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </>
-        )}
-
-        {/* 空の状態 */}
-        {isHashtagSearch && hashtagPosts.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>このハッシュタグを含む投稿が見つかりません</Text>
-          </View>
-        )}
-        {!isHashtagSearch && users.length === 0 && posts.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>検索結果がありません</Text>
-          </View>
-        )}
-      </ScrollView>
-    );
+    return null;
   };
 
   return (
@@ -333,55 +406,42 @@ export const SearchScreen: React.FC = () => {
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
-        placeholder="ユーザーや曲を検索"
+        placeholder="プレイリスト・ユーザーを検索"
         onClear={handleClearSearch}
       />
 
-      {/* タブ */}
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'all' && styles.tabActive]}
-          onPress={() => setActiveTab('all')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
-            すべて
-          </Text>
-        </TouchableOpacity>
-        {!isHashtagSearch && (
-          <>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'users' && styles.tabActive]}
-              onPress={() => setActiveTab('users')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>
-                ユーザー
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
-              onPress={() => setActiveTab('posts')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>
-                投稿
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-        {isHashtagSearch && (
+      {/* タブ（検索時のみ表示） */}
+      {searchQuery.trim() && (
+        <View style={styles.tabs}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'hashtags' && styles.tabActive]}
-            onPress={() => setActiveTab('hashtags')}
+            style={[styles.tab, activeTab === 'posts' && styles.tabActive]}
+            onPress={() => setActiveTab('posts')}
             activeOpacity={0.7}
           >
-            <Text style={[styles.tabText, activeTab === 'hashtags' && styles.tabTextActive]}>
-              ハッシュタグ
+            <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>
+              投稿
             </Text>
           </TouchableOpacity>
-        )}
-      </View>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'playlists' && styles.tabActive]}
+            onPress={() => setActiveTab('playlists')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'playlists' && styles.tabTextActive]}>
+              プレイリスト
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'users' && styles.tabActive]}
+            onPress={() => setActiveTab('users')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>
+              ユーザー
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* コンテンツ */}
       {renderContent()}
@@ -429,25 +489,37 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontWeight: Typography.fontWeight.semiBold,
   },
+  defaultView: {
+    flex: 1,
+  },
   section: {
-    marginTop: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base,
+    marginBottom: Spacing.sm,
   },
   sectionTitle: {
     fontSize: Typography.fontSize.lg,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
-    paddingHorizontal: Spacing.base,
-    marginBottom: Spacing.sm,
   },
-  showMoreButton: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.base,
-    alignItems: 'center',
-  },
-  showMoreText: {
-    fontSize: Typography.fontSize.base,
+  moreText: {
+    fontSize: Typography.fontSize.sm,
     color: Colors.primary,
     fontWeight: Typography.fontWeight.semiBold,
+  },
+  tagsScroll: {
+    paddingHorizontal: Spacing.base,
+  },
+  playlistsScroll: {
+    paddingHorizontal: Spacing.base,
+  },
+  usersScroll: {
+    paddingHorizontal: Spacing.base,
   },
   loadingContainer: {
     flex: 1,

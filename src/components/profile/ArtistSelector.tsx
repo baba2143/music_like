@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   input: {
-    width: '100%',
+    flex: 1,
     height: 50,
     backgroundColor: '#1A1A1A',
     borderRadius: 8,

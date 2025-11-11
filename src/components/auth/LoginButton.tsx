@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.base,
     marginBottom: Spacing.md,
-    width: '100%',
+    flex: 1,
   },
   iconContainer: {
     width: 24,

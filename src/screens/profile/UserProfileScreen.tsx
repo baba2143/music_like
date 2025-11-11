@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { ProfileStackParamList } from '../../navigation/RootNavigator';
 import { User, Post } from '../../types/models';
 import { ProfileStats } from '../../components/profile/ProfileStats';
 import { PostGrid } from '../../components/profile/PostGrid';
@@ -27,8 +27,8 @@ import {
 } from '../../services/followService';
 import { getOrCreateConversation } from '../../services/conversationService';
 
-type UserProfileScreenRouteProp = RouteProp<RootStackParamList, 'UserProfile'>;
-type UserProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type UserProfileScreenRouteProp = RouteProp<ProfileStackParamList, 'UserProfile'>;
+type UserProfileScreenNavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
 export const UserProfileScreen: React.FC = () => {
   const route = useRoute<UserProfileScreenRouteProp>();
@@ -159,6 +159,12 @@ export const UserProfileScreen: React.FC = () => {
       return;
     }
 
+    // フォローしていない場合は警告
+    if (!isFollowing) {
+      window.alert('このユーザーをフォローするとメッセージを送れます');
+      return;
+    }
+
     try {
       setMessageLoading(true);
       const { data: conversation, error } = await getOrCreateConversation(
@@ -173,11 +179,17 @@ export const UserProfileScreen: React.FC = () => {
       }
 
       if (conversation) {
-        // Chat画面に遷移
-        navigation.navigate('Chat', {
-          conversationId: conversation.id,
-          otherUser: profileUser,
-        });
+        // @ts-ignore - Navigate to Messages tab's Chat screen
+        const tabNavigation = navigation.getParent();
+        if (tabNavigation) {
+          tabNavigation.navigate('Messages', {
+            screen: 'Chat',
+            params: {
+              conversationId: conversation.id,
+              otherUser: profileUser,
+            },
+          });
+        }
       }
     } catch (err) {
       console.error('Failed to create conversation:', err);
@@ -257,15 +269,15 @@ export const UserProfileScreen: React.FC = () => {
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.messageButton}
+              style={[styles.messageButton, !isFollowing && styles.messageButtonDisabled]}
               onPress={handleMessagePress}
-              disabled={messageLoading}
+              disabled={!isFollowing || messageLoading}
               activeOpacity={0.7}
             >
               {messageLoading ? (
                 <ActivityIndicator size="small" color={Colors.white} />
               ) : (
-                <Text style={styles.messageButtonText}>メッセージ</Text>
+                <Text style={[styles.messageButtonText, !isFollowing && styles.messageButtonTextDisabled]}>メッセージ</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -393,6 +405,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     fontWeight: Typography.fontWeight.semiBold,
     color: Colors.white,
+  },
+  messageButtonDisabled: {
+    backgroundColor: '#1A1A1A',
+    borderColor: '#3A3A3A',
+    opacity: 0.5,
+  },
+  messageButtonTextDisabled: {
+    color: '#606060',
   },
   shareButton: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { NotificationCard } from '../../components/notification/NotificationCard';
 import { Notification } from '../../types/models';
 import { Colors, Spacing, Typography } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { NotificationsStackParamList } from '../../navigation/RootNavigator';
 import {
   getNotifications,
   getUnreadCount,
@@ -22,7 +22,7 @@ import {
   markAllAsRead,
 } from '../../services/notificationService';
 
-type NotificationScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NotificationScreenNavigationProp = NativeStackNavigationProp<NotificationsStackParamList>;
 
 export const NotificationScreen: React.FC = () => {
   const { user } = useAuth();
@@ -33,6 +33,7 @@ export const NotificationScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isInitialMount = useRef(true);
 
   // 通知を取得
   const fetchNotifications = useCallback(async () => {
@@ -72,6 +73,20 @@ export const NotificationScreen: React.FC = () => {
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
+
+  // 画面にフォーカスが戻ったときに通知一覧を再取得
+  useFocusEffect(
+    useCallback(() => {
+      // 初回マウント時はスキップ（useEffectで処理済み）
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
+
+      // 2回目以降のフォーカス時のみ再取得
+      fetchNotifications();
+    }, [fetchNotifications])
+  );
 
   // リフレッシュ
   const onRefresh = useCallback(async () => {

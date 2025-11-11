@@ -128,7 +128,7 @@ export const ProfileSetupStep1Screen: React.FC = () => {
           <View style={styles.formGroup}>
             <FormInput
               label="ユーザー名"
-              required
+              required={true}
               placeholder="例: music_lover"
               value={username}
               onChangeText={(text) => {
@@ -155,7 +155,7 @@ export const ProfileSetupStep1Screen: React.FC = () => {
           {/* 表示名 */}
           <FormInput
             label="表示名"
-            required
+            required={true}
             placeholder="例: 音楽太郎"
             value={displayName}
             onChangeText={(text) => {
@@ -173,7 +173,7 @@ export const ProfileSetupStep1Screen: React.FC = () => {
             value={bio}
             onChangeText={setBio}
             maxLength={200}
-            multiline
+            multiline={true}
             numberOfLines={4}
           />
         </View>

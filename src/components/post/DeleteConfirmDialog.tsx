@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   dialogContainer: {
     backgroundColor: '#1A1A1A',
     borderRadius: 12,
-    width: '100%',
+    flex: 1,
     maxWidth: 340,
     borderWidth: 1,
     borderColor: '#2A2A2A',

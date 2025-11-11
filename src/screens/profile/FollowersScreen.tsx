@@ -10,14 +10,14 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { ProfileStackParamList } from '../../navigation/RootNavigator';
 import { User } from '../../types/models';
 import { UserSearchCard } from '../../components/search/UserSearchCard';
 import { Colors, Spacing, Typography } from '../../config/theme';
 import { getFollowers } from '../../services/followService';
 
-type FollowersScreenRouteProp = RouteProp<RootStackParamList, 'Followers'>;
-type FollowersScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type FollowersScreenRouteProp = RouteProp<ProfileStackParamList, 'Followers'>;
+type FollowersScreenNavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
 export const FollowersScreen: React.FC = () => {
   const route = useRoute<FollowersScreenRouteProp>();

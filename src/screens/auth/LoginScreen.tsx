@@ -133,7 +133,7 @@ export const LoginScreen: React.FC = () => {
             placeholderTextColor="#808080"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={true}
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -145,7 +145,7 @@ export const LoginScreen: React.FC = () => {
               placeholderTextColor="#808080"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              secureTextEntry
+              secureTextEntry={true}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -239,11 +239,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   formContainer: {
-    width: '100%',
+    flex: 1,
     marginBottom: Spacing.lg,
   },
   input: {
-    width: '100%',
+    flex: 1,
     height: 50,
     backgroundColor: '#1A1A1A',
     borderRadius: 8,
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   authButton: {
-    width: '100%',
+    flex: 1,
     height: 50,
     backgroundColor: Colors.primary,
     borderRadius: 8,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
+    flex: 1,
     marginVertical: Spacing.lg,
   },
   dividerLine: {
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.base,
   },
   buttonsContainer: {
-    width: '100%',
+    flex: 1,
     marginBottom: Spacing.lg,
   },
   terms: {

@@ -213,7 +213,7 @@ export const EditPostScreen: React.FC = () => {
             placeholderTextColor="#808080"
             value={caption}
             onChangeText={setCaption}
-            multiline
+            multiline={true}
             numberOfLines={4}
             textAlignVertical="top"
           />

@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase';
 import { Conversation, User, Message } from '../types/models';
+import { checkIsFollowing } from './followService';
 
 /**
  * 会話サービス
@@ -133,6 +134,20 @@ export const getOrCreateConversation = async (
   otherUserId: string
 ): Promise<ConversationServiceResponse> => {
   try {
+    // フォロー状態を確認
+    const { isFollowing, error: followError } = await checkIsFollowing(currentUserId, otherUserId);
+
+    if (followError) {
+      return { data: null, error: followError };
+    }
+
+    if (!isFollowing) {
+      return {
+        data: null,
+        error: new Error('このユーザーをフォローしていないため、メッセージを送信できません')
+      };
+    }
+
     // 既存の会話を確認
     const existingResult = await getConversation(currentUserId, otherUserId);
 

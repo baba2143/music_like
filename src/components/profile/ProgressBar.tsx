@@ -19,7 +19,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({ currentStep, totalStep
 
       {/* プログレスバー */}
       <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { flex: progress / 100 }]} />
+          <View style={{ flex: (100 - progress) / 100 }} />
+        </View>
       </View>
     </View>
   );
@@ -39,12 +42,16 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     height: 4,
-    backgroundColor: '#2A2A2A',
     borderRadius: 2,
     overflow: 'hidden',
   },
+  progressBarBackground: {
+    flexDirection: 'row',
+    height: 4,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 2,
+  },
   progressBarFill: {
-    height: '100%',
     backgroundColor: Colors.primary,
     borderRadius: 2,
   },

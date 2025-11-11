@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,20 +8,22 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ProfileHeader } from '../../components/profile/ProfileHeader';
 import { ProfileStats } from '../../components/profile/ProfileStats';
 import { PostGrid } from '../../components/profile/PostGrid';
-import { Post, User } from '../../types/models';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { PlaylistGrid } from '../../components/profile/PlaylistGrid';
+import { Post, User, Playlist } from '../../types/models';
+import { ProfileStackParamList } from '../../navigation/RootNavigator';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserPosts, getSavedPosts } from '../../services/postService';
 import { getUserProfile } from '../../services/userService';
 import { getFollowersCount, getFollowingCount } from '../../services/followService';
+import { getUserPlaylists } from '../../services/playlistService';
 import { Colors, Spacing, Typography } from '../../config/theme';
 
-type MyProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type MyProfileScreenNavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
 
 type TabType = 'posts' | 'playlists' | 'saved';
 
@@ -30,7 +32,7 @@ export const MyProfileScreen: React.FC = () => {
   const { user } = useAuth(); // これはSupabase認証User（id, emailのみ）
   const [profile, setProfile] = useState<User | null>(null); // アプリケーションのプロフィールUser
   const [posts, setPosts] = useState<Post[]>([]);
-  const [playlistPosts, setPlaylistPosts] = useState<Post[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -39,6 +41,7 @@ export const MyProfileScreen: React.FC = () => {
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [savedLoading, setSavedLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('posts');
+  const isInitialMount = useRef(true);
 
   // プロフィールを取得
   const fetchProfile = useCallback(async () => {
@@ -110,22 +113,35 @@ export const MyProfileScreen: React.FC = () => {
     }
   }, [user]);
 
-  // プレイリスト投稿を取得
-  const fetchPlaylists = useCallback(async () => {
-    if (playlistPosts.length > 0) return; // 既に取得済み
+  // プレイリストを取得
+  const fetchPlaylists = useCallback(async (forceReload: boolean = false) => {
+    if (!user) return;
+    if (!forceReload && playlists.length > 0) return; // 既に取得済み
 
     setPlaylistLoading(true);
     try {
-      console.log('=== マイページ: プレイリスト投稿をフィルタリング中 ===');
-      const playlists = posts.filter((post) => post.contentType === 'playlist');
-      console.log('プレイリスト投稿数:', playlists.length);
-      setPlaylistPosts(playlists);
+      console.log('=== マイページ: プレイリストを取得中 ===');
+      console.log('ユーザーID:', user.id);
+
+      const { data, error } = await getUserPlaylists(user.id, user.id);
+
+      if (error) {
+        console.error('プレイリスト取得エラー:', error);
+        window.alert('エラー: プレイリストの取得に失敗しました');
+        return;
+      }
+
+      if (data) {
+        console.log('取得したプレイリスト数:', data.length);
+        setPlaylists(data);
+      }
     } catch (error) {
-      console.error('Failed to filter playlist posts:', error);
+      console.error('Failed to fetch playlists:', error);
+      window.alert('エラー: 予期しないエラーが発生しました');
     } finally {
       setPlaylistLoading(false);
     }
-  }, [posts, playlistPosts.length]);
+  }, [user, playlists.length]);
 
   // 保存済み投稿を取得
   const fetchSavedPosts = useCallback(async () => {
@@ -166,6 +182,23 @@ export const MyProfileScreen: React.FC = () => {
     loadData();
   }, [fetchProfile, fetchPosts]);
 
+  // 画面にフォーカスが戻ったときに投稿とプレイリストを再取得
+  useFocusEffect(
+    useCallback(() => {
+      // 初回マウント時はスキップ（useEffectで処理済み）
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
+
+      // 2回目以降のフォーカス時のみ再取得
+      fetchPosts();
+      if (playlists.length > 0) {
+        fetchPlaylists(true); // 強制再取得
+      }
+    }, [fetchPosts, fetchPlaylists, playlists.length])
+  );
+
   // リフレッシュ処理
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -202,11 +235,16 @@ export const MyProfileScreen: React.FC = () => {
   // タブ切り替えハンドラ（遅延ロード）
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
-    if (tab === 'playlists' && playlistPosts.length === 0) {
+    if (tab === 'playlists' && playlists.length === 0) {
       fetchPlaylists();
     } else if (tab === 'saved' && savedPosts.length === 0) {
       fetchSavedPosts();
     }
+  };
+
+  // プレイリストを押したときの処理
+  const handlePlaylistPress = (playlistId: string) => {
+    navigation.navigate('PlaylistDetail', { playlistId });
   };
 
   // ユーザーが未ログインの場合
@@ -297,6 +335,20 @@ export const MyProfileScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* プレイリスト作成ボタン（プレイリストタブ選択時のみ表示） */}
+        {activeTab === 'playlists' && (
+          <View style={styles.createPlaylistContainer}>
+            <TouchableOpacity
+              style={styles.createPlaylistButton}
+              onPress={() => navigation.navigate('CreatePlaylist')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.createPlaylistIcon}>+</Text>
+              <Text style={styles.createPlaylistText}>プレイリストを作成</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* コンテンツ */}
         {activeTab === 'posts' && <PostGrid posts={posts} onPostPress={handlePostPress} />}
 
@@ -306,7 +358,7 @@ export const MyProfileScreen: React.FC = () => {
               <ActivityIndicator size="large" color={Colors.primary} />
             </View>
           ) : (
-            <PostGrid posts={playlistPosts} onPostPress={handlePostPress} />
+            <PlaylistGrid playlists={playlists} onPlaylistPress={handlePlaylistPress} />
           ))}
 
         {activeTab === 'saved' &&
@@ -385,6 +437,31 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: Typography.fontSize.md,
+    color: Colors.white,
+  },
+  createPlaylistContainer: {
+    padding: Spacing.md,
+    backgroundColor: '#000000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  createPlaylistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    paddingVertical: Spacing.md,
+    borderRadius: 12,
+  },
+  createPlaylistIcon: {
+    fontSize: 24,
+    color: Colors.white,
+    fontWeight: Typography.fontWeight.bold,
+    marginRight: Spacing.xs,
+  },
+  createPlaylistText: {
+    fontSize: Typography.fontSize.md,
+    fontWeight: Typography.fontWeight.semiBold,
     color: Colors.white,
   },
 });

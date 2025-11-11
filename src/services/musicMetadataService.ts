@@ -3,6 +3,8 @@
  * Spotify/Apple Music/YouTube Music のURLからメタデータを取得
  */
 
+import { supabase } from '../config/supabase';
+
 export interface MusicMetadata {
   title?: string;
   artist?: string;
@@ -28,6 +30,8 @@ export const detectMusicService = (
   if (url.includes('spotify.com')) return 'spotify';
   if (url.includes('music.apple.com')) return 'apple_music';
   if (url.includes('music.youtube.com')) return 'youtube_music';
+  // YouTube通常URL・短縮URLもサポート
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube_music';
 
   return null;
 };
@@ -112,8 +116,7 @@ export const fetchOGMetadata = async (url: string): Promise<MetadataResult> => {
 
 /**
  * プレイリスト/トラックのメタデータを取得
- * まず簡易版として、URLパターンからサービスを判定し、
- * 可能であればOGタグを取得
+ * Supabase Edge Functionを経由してCORS問題を回避
  */
 export const fetchMusicMetadata = async (url: string): Promise<MetadataResult> => {
   if (!url) {
@@ -126,47 +129,99 @@ export const fetchMusicMetadata = async (url: string): Promise<MetadataResult> =
     return { data: null, error: new Error('Unsupported music service') };
   }
 
-  // OGタグを取得（CORSエラーの可能性あり）
-  const result = await fetchOGMetadata(url);
-
-  // エラーの場合は、最低限の情報を返す
-  if (result.error) {
-    return {
-      data: {
-        service,
-      },
-      error: result.error,
-    };
+  // Spotifyの場合は専用Edge Function
+  if (service === 'spotify') {
+    return await fetchSpotifyMetadata(url);
   }
 
-  return result;
+  // YouTube/Apple Musicの場合は汎用Edge Function
+  if (service === 'youtube_music' || service === 'apple_music') {
+    return await fetchGeneralMusicMetadata(url);
+  }
+
+  // それ以外（ここには来ないはず）
+  return {
+    data: null,
+    error: new Error('Unsupported service'),
+  };
 };
 
 /**
- * Spotify Embed APIを使用してプレビューを取得（代替案）
- * oembed APIは認証不要で使用可能
+ * Supabase Edge Functionを使用してSpotifyトラック情報を取得
+ * Spotify Web APIを使用するため、アーティスト名、アルバム名などの詳細情報を取得可能
  */
-export const fetchSpotifyOEmbed = async (url: string): Promise<MetadataResult> => {
+export const fetchSpotifyMetadata = async (url: string): Promise<MetadataResult> => {
   try {
-    const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
-    const response = await fetch(oembedUrl);
+    console.log('=== Supabase Edge Function呼び出し (Spotify) ===');
+    console.log('URL:', url);
 
-    if (!response.ok) {
-      throw new Error(`Spotify oEmbed API error: ${response.status}`);
+    const { data, error } = await supabase.functions.invoke('get-spotify-track', {
+      body: { url },
+    });
+
+    if (error) {
+      console.error('Supabase Function error:', error);
+      throw new Error(error.message || 'Failed to invoke function');
     }
 
-    const data = await response.json();
+    if (data.error) {
+      console.error('Spotify API error:', data.error);
+      throw new Error(data.error);
+    }
+
+    console.log('=== Spotify Web API レスポンス ===');
+    console.log('Title:', data.data.title);
+    console.log('Artist:', data.data.artist);
+    console.log('Album:', data.data.album);
+    console.log('Thumbnail:', data.data.thumbnailUrl);
 
     return {
-      data: {
-        title: data.title,
-        thumbnailUrl: data.thumbnail_url,
-        service: 'spotify',
-      },
+      data: data.data,
       error: null,
     };
   } catch (error) {
-    console.error('Failed to fetch Spotify oEmbed:', error);
+    console.error('Failed to fetch Spotify metadata:', error);
+    return {
+      data: null,
+      error: error as Error,
+    };
+  }
+};
+
+/**
+ * Supabase Edge Functionを使用してYouTube/Apple Musicのメタデータを取得
+ * OGタグをスクレイピングしてCORS問題を回避
+ */
+export const fetchGeneralMusicMetadata = async (url: string): Promise<MetadataResult> => {
+  try {
+    console.log('=== Supabase Edge Function呼び出し (YouTube/Apple Music) ===');
+    console.log('URL:', url);
+
+    const { data, error } = await supabase.functions.invoke('get-music-metadata', {
+      body: { url },
+    });
+
+    if (error) {
+      console.error('Supabase Function error:', error);
+      throw new Error(error.message || 'Failed to invoke function');
+    }
+
+    if (data.error) {
+      console.error('Music metadata error:', data.error);
+      throw new Error(data.error);
+    }
+
+    console.log('=== 音楽メタデータ レスポンス ===');
+    console.log('Title:', data.data.title);
+    console.log('Artist:', data.data.artist);
+    console.log('Thumbnail:', data.data.thumbnailUrl);
+
+    return {
+      data: data.data,
+      error: null,
+    };
+  } catch (error) {
+    console.error('Failed to fetch music metadata:', error);
     return {
       data: null,
       error: error as Error,

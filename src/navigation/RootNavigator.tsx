@@ -19,6 +19,9 @@ import { CreatePostScreen } from '../screens/post/CreatePostScreen';
 import { EditPostScreen } from '../screens/post/EditPostScreen';
 import { MessagesScreen } from '../screens/messages/MessagesScreen';
 import { ChatScreen } from '../screens/messages/ChatScreen';
+import { CreatePlaylistScreen } from '../screens/playlist/CreatePlaylistScreen';
+import { PlaylistDetailScreen } from '../screens/playlist/PlaylistDetailScreen';
+import { AddTrackToPlaylistScreen } from '../screens/playlist/AddTrackToPlaylistScreen';
 import { Colors, Typography } from '../config/theme';
 import { User } from '../types/models';
 
@@ -29,14 +32,8 @@ export type RootStackParamList = {
   ProfileSetupStep2: undefined;
   ProfileSetupStep3: undefined;
   MainTabs: undefined;
-  PostDetail: { postId: string };
-  CreatePost: undefined;
+  CreatePost: { playlistId?: string } | undefined;
   EditPost: { postId: string };
-  EditProfile: undefined;
-  UserProfile: { userId: string };
-  Followers: { userId: string; username?: string };
-  Following: { userId: string; username?: string };
-  Chat: { conversationId?: string; otherUser: User };
 };
 
 // タブ画面の型定義
@@ -49,8 +46,50 @@ export type MainTabParamList = {
   Profile: undefined;
 };
 
+// 各タブのスタック型定義
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  PostDetail: { postId: string };
+  UserProfile: { userId: string };
+};
+
+export type SearchStackParamList = {
+  SearchMain: undefined;
+  UserProfile: { userId: string };
+  PostDetail: { postId: string };
+};
+
+export type MessagesStackParamList = {
+  MessagesMain: undefined;
+  Chat: { conversationId?: string; otherUser: User };
+};
+
+export type NotificationsStackParamList = {
+  NotificationsMain: undefined;
+  PostDetail: { postId: string };
+  UserProfile: { userId: string };
+};
+
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+  UserProfile: { userId: string };
+  EditProfile: undefined;
+  CreatePlaylist: undefined;
+  PlaylistDetail: { playlistId: string };
+  AddTrack: { playlistId: string };
+  Followers: { userId: string; username?: string };
+  Following: { userId: string; username?: string };
+  Chat: { conversationId?: string; otherUser: User };
+  PostDetail: { postId: string };
+};
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
+const SearchStack = createNativeStackNavigator<SearchStackParamList>();
+const MessagesStack = createNativeStackNavigator<MessagesStackParamList>();
+const NotificationsStack = createNativeStackNavigator<NotificationsStackParamList>();
+const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
 // 投稿タブ用のプレースホルダー（実際には表示されない）
 const PostPlaceholder = () => null;
@@ -64,6 +103,87 @@ const NotificationIcon = ({ size }: { size: number }) => (
   <Text style={{ fontSize: size }}>🔔</Text>
 );
 const ProfileIcon = ({ size }: { size: number }) => <Text style={{ fontSize: size }}>👤</Text>;
+
+// ホームタブのスタックナビゲーター
+const HomeStackScreen = () => {
+  return (
+    <HomeStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <HomeStack.Screen name="UserProfile" component={UserProfileScreen} />
+    </HomeStack.Navigator>
+  );
+};
+
+// 検索タブのスタックナビゲーター
+const SearchStackScreen = () => {
+  return (
+    <SearchStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <SearchStack.Screen name="SearchMain" component={SearchScreen} />
+      <SearchStack.Screen name="UserProfile" component={UserProfileScreen} />
+      <SearchStack.Screen name="PostDetail" component={PostDetailScreen} />
+    </SearchStack.Navigator>
+  );
+};
+
+// メッセージタブのスタックナビゲーター
+const MessagesStackScreen = () => {
+  return (
+    <MessagesStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <MessagesStack.Screen name="MessagesMain" component={MessagesScreen} />
+      <MessagesStack.Screen name="Chat" component={ChatScreen} />
+    </MessagesStack.Navigator>
+  );
+};
+
+// 通知タブのスタックナビゲーター
+const NotificationsStackScreen = () => {
+  return (
+    <NotificationsStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <NotificationsStack.Screen name="NotificationsMain" component={NotificationScreen} />
+      <NotificationsStack.Screen name="PostDetail" component={PostDetailScreen} />
+      <NotificationsStack.Screen name="UserProfile" component={UserProfileScreen} />
+    </NotificationsStack.Navigator>
+  );
+};
+
+// プロフィールタブのスタックナビゲーター
+const ProfileStackScreen = () => {
+  return (
+    <ProfileStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <ProfileStack.Screen name="ProfileMain" component={MyProfileScreen} />
+      <ProfileStack.Screen name="UserProfile" component={UserProfileScreen} />
+      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <ProfileStack.Screen name="CreatePlaylist" component={CreatePlaylistScreen} />
+      <ProfileStack.Screen name="PlaylistDetail" component={PlaylistDetailScreen} />
+      <ProfileStack.Screen name="AddTrack" component={AddTrackToPlaylistScreen} />
+      <ProfileStack.Screen name="Followers" component={FollowersScreen} />
+      <ProfileStack.Screen name="Following" component={FollowingScreen} />
+      <ProfileStack.Screen name="Chat" component={ChatScreen} />
+      <ProfileStack.Screen name="PostDetail" component={PostDetailScreen} />
+    </ProfileStack.Navigator>
+  );
+};
 
 // メインのタブナビゲーション
 const MainTabs = () => {
@@ -86,7 +206,7 @@ const MainTabs = () => {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={HomeStackScreen}
         options={{
           tabBarLabel: 'ホーム',
           tabBarIcon: HomeIcon,
@@ -94,7 +214,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Search"
-        component={SearchScreen}
+        component={SearchStackScreen}
         options={{
           tabBarLabel: '探す',
           tabBarIcon: SearchIcon,
@@ -117,7 +237,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Messages"
-        component={MessagesScreen}
+        component={MessagesStackScreen}
         options={{
           tabBarLabel: 'DM',
           tabBarIcon: MessagesIcon,
@@ -125,7 +245,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Notifications"
-        component={NotificationScreen}
+        component={NotificationsStackScreen}
         options={{
           tabBarLabel: '通知',
           tabBarIcon: NotificationIcon,
@@ -133,7 +253,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="Profile"
-        component={MyProfileScreen}
+        component={ProfileStackScreen}
         options={{
           tabBarLabel: 'マイページ',
           tabBarIcon: ProfileIcon,
@@ -156,14 +276,21 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="ProfileSetupStep2" component={ProfileSetupStep2Screen} />
       <Stack.Screen name="ProfileSetupStep3" component={ProfileSetupStep3Screen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="PostDetail" component={PostDetailScreen} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} />
-      <Stack.Screen name="EditPost" component={EditPostScreen} />
-      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-      <Stack.Screen name="UserProfile" component={UserProfileScreen} />
-      <Stack.Screen name="Followers" component={FollowersScreen} />
-      <Stack.Screen name="Following" component={FollowingScreen} />
-      <Stack.Screen name="Chat" component={ChatScreen} />
+      {/* モーダル表示の画面 */}
+      <Stack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="EditPost"
+        component={EditPostScreen}
+        options={{
+          presentation: 'modal',
+        }}
+      />
     </Stack.Navigator>
   );
 };

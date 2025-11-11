@@ -8,12 +8,12 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import { Post } from '../../types/models';
+import { Playlist } from '../../types/models';
 import { Colors, Typography, Spacing } from '../../config/theme';
 
-interface PostGridProps {
-  posts: Post[];
-  onPostPress?: (postId: string) => void;
+interface PlaylistGridProps {
+  playlists: Playlist[];
+  onPlaylistPress?: (playlistId: string) => void;
 }
 
 const { width } = Dimensions.get('window');
@@ -21,56 +21,45 @@ const COLUMN_COUNT = 3;
 const SPACING = 2;
 const ITEM_SIZE = (width - SPACING * (COLUMN_COUNT + 1)) / COLUMN_COUNT;
 
-export const PostGrid: React.FC<PostGridProps> = ({ posts, onPostPress }) => {
-  const handlePostPress = (postId: string) => {
-    if (onPostPress) {
-      onPostPress(postId);
+export const PlaylistGrid: React.FC<PlaylistGridProps> = ({ playlists, onPlaylistPress }) => {
+  const handlePlaylistPress = (playlistId: string) => {
+    if (onPlaylistPress) {
+      onPlaylistPress(playlistId);
     }
   };
 
-  const renderItem = ({ item, index }: { item: Post; index: number }) => {
-    // タイトルを取得（プレイリスト、トラック、またはキャプション）
-    const title =
-      item.playlistTitle ||
-      item.trackTitle ||
-      (item.caption ? item.caption.substring(0, 30) : 'Untitled');
-
+  const renderItem = ({ item, index }: { item: Playlist; index: number }) => {
     return (
       <View style={styles.gridItem}>
         <TouchableOpacity
           style={styles.gridTouchable}
-          onPress={() => handlePostPress(item.id)}
+          onPress={() => handlePlaylistPress(item.id)}
           activeOpacity={0.7}
         >
-          {/* サムネイル */}
-          <View style={styles.thumbnail}>
-            {/* サムネイル画像 */}
-            {item.playlistThumbnail || item.trackThumbnail ? (
-              <Image
-                source={{ uri: item.playlistThumbnail || item.trackThumbnail || '' }}
-                style={styles.thumbnailImage}
-                resizeMode="cover"
-              />
+          {/* カバー画像 */}
+          <View style={styles.cover}>
+            {item.coverImageUrl ? (
+              <Image source={{ uri: item.coverImageUrl }} style={styles.coverImage} />
             ) : (
               <View style={styles.placeholderImage}>
                 <Text style={styles.placeholderIcon}>🎵</Text>
               </View>
             )}
 
-            {/* 再生ボタン（オーバーレイ） */}
-            <View style={styles.playButton}>
-              <Text style={styles.playIcon}>▶</Text>
+            {/* 曲数バッジ（右下） */}
+            <View style={styles.trackCountBadge}>
+              <Text style={styles.trackCountText}>{item.tracksCount}曲</Text>
             </View>
 
-            {/* 番号バッジ（左下） */}
-            <View style={styles.numberBadge}>
-              <Text style={styles.numberText}>{index + 1}</Text>
+            {/* 公開/非公開バッジ（左上） */}
+            <View style={[styles.visibilityBadge, !item.isPublic && styles.privateBadge]}>
+              <Text style={styles.visibilityText}>{item.isPublic ? '公開' : '非公開'}</Text>
             </View>
           </View>
         </TouchableOpacity>
         {/* タイトル */}
         <Text style={styles.titleText} numberOfLines={2}>
-          {title}
+          {item.title}
         </Text>
       </View>
     );
@@ -78,15 +67,15 @@ export const PostGrid: React.FC<PostGridProps> = ({ posts, onPostPress }) => {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>📱</Text>
-      <Text style={styles.emptyText}>まだ投稿がありません</Text>
-      <Text style={styles.emptySubtext}>最初の投稿を作成しましょう！</Text>
+      <Text style={styles.emptyIcon}>🎵</Text>
+      <Text style={styles.emptyText}>プレイリストがありません</Text>
+      <Text style={styles.emptySubtext}>最初のプレイリストを作成しましょう！</Text>
     </View>
   );
 
   return (
     <FlatList
-      data={posts}
+      data={playlists}
       renderItem={renderItem}
       keyExtractor={(item) => item.id}
       numColumns={COLUMN_COUNT}
@@ -116,19 +105,20 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     marginBottom: Spacing.xs,
   },
-  thumbnail: {
+  cover: {
     flex: 1,
     backgroundColor: '#2A2A2A',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 4,
+    borderRadius: 8,
     position: 'relative',
     overflow: 'hidden',
   },
-  thumbnailImage: {
+  coverImage: {
     position: 'absolute',
     flex: 1,
-    borderRadius: 4,
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
   },
   placeholderImage: {
     position: 'absolute',
@@ -136,37 +126,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#2A2A2A',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 4,
+    borderRadius: 8,
   },
   placeholderIcon: {
-    fontSize: 32,
+    fontSize: 40,
   },
-  playButton: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  playIcon: {
-    fontSize: 20,
-    color: '#000000',
-    marginLeft: 4,
-  },
-  numberBadge: {
+  trackCountBadge: {
     position: 'absolute',
     bottom: 8,
-    left: 8,
+    right: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
-  numberText: {
+  trackCountText: {
     fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semiBold,
+    color: Colors.white,
+  },
+  visibilityBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  privateBadge: {
+    backgroundColor: '#808080',
+  },
+  visibilityText: {
+    fontSize: 10,
     fontWeight: Typography.fontWeight.bold,
     color: Colors.white,
   },
@@ -174,6 +166,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.white,
     lineHeight: 14,
+    fontWeight: Typography.fontWeight.medium,
   },
   emptyContainer: {
     flex: 1,

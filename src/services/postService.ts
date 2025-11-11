@@ -39,12 +39,14 @@ export const createPost = async (
         content_type: params.contentType,
         caption: params.caption || null,
         hashtags: params.hashtags || [],
-        // プレイリスト関連フィールド
+        // プレイリスト関連フィールド（外部サービス）
         playlist_url: params.playlistUrl || null,
         playlist_title: params.playlistTitle || null,
         playlist_thumbnail: params.playlistThumbnail || null,
         playlist_track_count: params.playlistTrackCount || null,
         playlist_service: params.playlistService || null,
+        // プレイリスト関連フィールド（アプリ内）
+        internal_playlist_id: params.internalPlaylistId || null,
         // トラック関連フィールド
         track_title: params.trackTitle || null,
         track_artist: params.trackArtist || null,
@@ -64,6 +66,17 @@ export const createPost = async (
           oshi_group,
           oshi_member,
           created_at
+        ),
+        playlists!posts_internal_playlist_id_fkey (
+          id,
+          user_id,
+          title,
+          description,
+          cover_image_url,
+          is_public,
+          tracks_count,
+          created_at,
+          updated_at
         )
       `
       )
@@ -105,6 +118,17 @@ export const getPost = async (
           oshi_group,
           oshi_member,
           created_at
+        ),
+        playlists!posts_internal_playlist_id_fkey (
+          id,
+          user_id,
+          title,
+          description,
+          cover_image_url,
+          is_public,
+          tracks_count,
+          created_at,
+          updated_at
         )
       `
       )
@@ -173,6 +197,17 @@ export const updatePost = async (
           oshi_group,
           oshi_member,
           created_at
+        ),
+        playlists!posts_internal_playlist_id_fkey (
+          id,
+          user_id,
+          title,
+          description,
+          cover_image_url,
+          is_public,
+          tracks_count,
+          created_at,
+          updated_at
         )
       `
       )
@@ -232,6 +267,17 @@ export const getFeedPosts = async (
           oshi_group,
           oshi_member,
           created_at
+        ),
+        playlists!posts_internal_playlist_id_fkey (
+          id,
+          user_id,
+          title,
+          description,
+          cover_image_url,
+          is_public,
+          tracks_count,
+          created_at,
+          updated_at
         )
       `
       )
@@ -320,6 +366,17 @@ export const getUserPosts = async (
           oshi_group,
           oshi_member,
           created_at
+        ),
+        playlists!posts_internal_playlist_id_fkey (
+          id,
+          user_id,
+          title,
+          description,
+          cover_image_url,
+          is_public,
+          tracks_count,
+          created_at,
+          updated_at
         )
       `
       )
@@ -579,6 +636,19 @@ function mapDatabasePostToPost(
     playlistThumbnail: data.playlist_thumbnail,
     playlistTrackCount: data.playlist_track_count,
     playlistService: data.playlist_service,
+    // アプリ内プレイリスト
+    internalPlaylistId: data.internal_playlist_id,
+    internalPlaylist: data.playlists ? {
+      id: data.playlists.id,
+      userId: data.playlists.user_id,
+      title: data.playlists.title,
+      description: data.playlists.description,
+      coverImageUrl: data.playlists.cover_image_url,
+      isPublic: data.playlists.is_public,
+      tracksCount: data.playlists.tracks_count,
+      createdAt: new Date(data.playlists.created_at),
+      updatedAt: new Date(data.playlists.updated_at),
+    } : undefined,
     trackTitle: data.track_title,
     trackArtist: data.track_artist,
     trackAlbum: data.track_album,

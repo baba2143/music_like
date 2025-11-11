@@ -26,11 +26,11 @@ import {
   toggleSave,
   deletePost,
 } from '../../services/postService';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { HomeStackParamList } from '../../navigation/RootNavigator';
 import { getRelativeTime } from '../../utils/mockData';
 
-type PostDetailScreenRouteProp = RouteProp<RootStackParamList, 'PostDetail'>;
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type PostDetailScreenRouteProp = RouteProp<HomeStackParamList, 'PostDetail'>;
+type NavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 
 export const PostDetailScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -202,7 +202,8 @@ export const PostDetailScreen: React.FC = () => {
 
   const handleEdit = () => {
     if (!post) return;
-    navigation.navigate('EditPost', { postId: post.id });
+    // @ts-ignore - EditPost is in RootStack, need to navigate to parent
+    navigation.getParent()?.navigate('EditPost', { postId: post.id });
   };
 
   const handleDeleteConfirm = async () => {
@@ -228,6 +229,13 @@ export const PostDetailScreen: React.FC = () => {
       setDeleting(false);
     }
   };
+
+  const handlePressUser = useCallback(
+    (userId: string) => {
+      navigation.navigate('UserProfile', { userId });
+    },
+    [navigation]
+  );
 
   if (loading) {
     return (
@@ -313,7 +321,11 @@ export const PostDetailScreen: React.FC = () => {
         {/* 投稿者情報 */}
         <View style={styles.postInfo}>
           {/* ユーザー */}
-          <View style={styles.userInfo}>
+          <TouchableOpacity
+            style={styles.userInfo}
+            onPress={() => handlePressUser(post.userId)}
+            activeOpacity={0.7}
+          >
             <View style={styles.avatar}>
               {post.author.avatarUrl ? (
                 <Image source={{ uri: post.author.avatarUrl }} style={styles.avatarImage} />
@@ -327,7 +339,7 @@ export const PostDetailScreen: React.FC = () => {
               <Text style={styles.username}>@{post.author.username}</Text>
               <Text style={styles.timestamp}>{getRelativeTime(post.createdAt)}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           {/* キャプション */}
           {post.caption && <Text style={styles.caption}>{post.caption}</Text>}
@@ -471,7 +483,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2A2A2A',
   },
   thumbnail: {
-    width: '100%',
+    flex: 1,
     aspectRatio: 1,
     backgroundColor: '#1A1A1A',
     borderRadius: 8,
@@ -479,8 +491,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   thumbnailImage: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
   },
   placeholderImage: {
     flex: 1,
@@ -524,8 +535,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
   },
   avatarText: {
     fontSize: Typography.fontSize.base,

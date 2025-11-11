@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ConversationCard } from '../../components/message/ConversationCard';
 import { Conversation, User } from '../../types/models';
@@ -27,6 +27,7 @@ export const MessagesScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isInitialMount = useRef(true);
 
   // 会話一覧を取得
   const fetchConversations = useCallback(async () => {
@@ -69,6 +70,20 @@ export const MessagesScreen: React.FC = () => {
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // 画面にフォーカスが戻ったときに会話一覧を再取得
+  useFocusEffect(
+    useCallback(() => {
+      // 初回マウント時はスキップ（useEffectで処理済み）
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
+
+      // 2回目以降のフォーカス時のみ再取得
+      fetchConversations();
+    }, [fetchConversations])
+  );
 
   // リフレッシュ
   const onRefresh = useCallback(async () => {

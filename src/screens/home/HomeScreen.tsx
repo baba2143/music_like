@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   FlatList,
@@ -7,16 +7,16 @@ import {
   Text,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { PostCard } from '../../components/post/PostCard';
 import { Post } from '../../types/models';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { HomeStackParamList } from '../../navigation/RootNavigator';
 import { Colors, Spacing, Typography } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { getFeedPosts, toggleLike, toggleSave } from '../../services/postService';
 
-type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
@@ -27,6 +27,7 @@ export const HomeScreen: React.FC = () => {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const isInitialMount = useRef(true);
 
   // 初回投稿を取得
   const fetchPosts = useCallback(async () => {
@@ -88,6 +89,20 @@ export const HomeScreen: React.FC = () => {
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  // 画面にフォーカスが戻ったときにフィードを再取得
+  useFocusEffect(
+    useCallback(() => {
+      // 初回マウント時はスキップ（useEffectで処理済み）
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
+
+      // 2回目以降のフォーカス時のみ再取得
+      fetchPosts();
+    }, [fetchPosts])
+  );
 
   // リフレッシュ処理
   const onRefresh = useCallback(async () => {
@@ -175,9 +190,12 @@ export const HomeScreen: React.FC = () => {
   }, [user]);
 
   // ユーザープロフィール表示
-  const handlePressUser = useCallback((_userId: string) => {
-    window.alert('準備中: ユーザープロフィール画面は準備中です');
-  }, []);
+  const handlePressUser = useCallback(
+    (userId: string) => {
+      navigation.navigate('UserProfile', { userId });
+    },
+    [navigation]
+  );
 
   // 投稿詳細表示
   const handlePressPost = useCallback(

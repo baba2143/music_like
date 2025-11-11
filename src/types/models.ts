@@ -34,12 +34,16 @@ export interface Post {
   caption?: string;
   hashtags?: string[];
 
-  // プレイリスト投稿の場合
+  // プレイリスト投稿の場合（外部サービス）
   playlistUrl?: string;
   playlistTitle?: string;
   playlistThumbnail?: string;
   playlistTrackCount?: number;
   playlistService?: 'spotify' | 'apple_music' | 'youtube_music';
+
+  // プレイリスト投稿の場合（アプリ内プレイリスト）
+  internalPlaylistId?: string;
+  internalPlaylist?: Playlist;
 
   // 今聴いてる曲投稿の場合
   trackTitle?: string;
@@ -59,8 +63,8 @@ export interface Post {
   updatedAt: Date;
 }
 
-// プレイリスト情報
-export interface Playlist {
+// 外部サービスのプレイリスト情報（投稿用）
+export interface ExternalPlaylist {
   id: string;
   title: string;
   thumbnail?: string;
@@ -69,15 +73,44 @@ export interface Playlist {
   url: string;
 }
 
-// 楽曲情報
+// アプリ内プレイリスト
+export interface Playlist {
+  id: string;
+  userId: string;
+  user?: User; // 作成者情報
+  title: string;
+  description?: string;
+  coverImageUrl?: string;
+  isPublic: boolean;
+  tracksCount: number;
+  tracks?: PlaylistTrack[]; // プレイリスト内の曲リスト
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 楽曲情報（アプリ内管理）
 export interface Track {
   id: string;
   title: string;
   artist: string;
   album?: string;
-  thumbnail?: string;
-  url?: string;
-  duration?: number; // 秒
+  thumbnailUrl?: string;
+  externalUrl?: string;
+  service?: 'spotify' | 'apple_music' | 'youtube_music' | 'manual';
+  externalId?: string;
+  createdAt: Date;
+}
+
+// プレイリスト-曲の中間テーブル
+export interface PlaylistTrack {
+  id: string;
+  playlistId: string;
+  trackId: string;
+  track?: Track; // 曲情報
+  position: number;
+  addedByUserId: string;
+  addedBy?: User; // 追加したユーザー情報
+  createdAt: Date;
 }
 
 // コメント
@@ -135,12 +168,14 @@ export interface CreatePostInput {
   contentType: PostType;
   caption?: string;
   hashtags?: string[];
-  // プレイリスト投稿用
+  // プレイリスト投稿用（外部サービス）
   playlistUrl?: string;
   playlistTitle?: string;
   playlistThumbnail?: string;
   playlistTrackCount?: number;
   playlistService?: 'spotify' | 'apple_music' | 'youtube_music';
+  // プレイリスト投稿用（アプリ内）
+  internalPlaylistId?: string;
   // トラック投稿用
   trackTitle?: string;
   trackArtist?: string;

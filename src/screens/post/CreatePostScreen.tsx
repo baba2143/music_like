@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,30 +11,40 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography, Spacing } from '../../config/theme';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { useAuth } from '../../contexts/AuthContext';
 import { createPost } from '../../services/postService';
-import { PostType } from '../../types/models';
+import { PostType, Playlist } from '../../types/models';
 import {
   fetchSpotifyOEmbed,
   detectMusicService,
   fetchMusicMetadata,
 } from '../../services/musicMetadataService';
+import { PlaylistSelector } from '../../components/playlist/PlaylistSelector';
+import { updatePlaylist } from '../../services/playlistService';
 
 type CreatePostNavigationProp = NativeStackNavigationProp<RootStackParamList, 'CreatePost'>;
+type CreatePostRouteProp = RouteProp<RootStackParamList, 'CreatePost'>;
 
 export const CreatePostScreen: React.FC = () => {
   const navigation = useNavigation<CreatePostNavigationProp>();
+  const route = useRoute<CreatePostRouteProp>();
   const { user } = useAuth();
 
   const [postType, setPostType] = useState<PostType>('playlist');
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
 
-  // プレイリスト関連の状態
+  // プレイリスト選択タブ（内部 vs 外部）
+  const [playlistSourceType, setPlaylistSourceType] = useState<'internal' | 'external'>('internal');
+
+  // 内部プレイリスト
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+
+  // 外部プレイリスト関連の状態
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [playlistTitle, setPlaylistTitle] = useState('');
   const [playlistThumbnail, setPlaylistThumbnail] = useState('');
@@ -50,6 +60,16 @@ export const CreatePostScreen: React.FC = () => {
 
   const [isPosting, setIsPosting] = useState(false);
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
+
+  // route paramsからplaylistIdを受け取り、存在すれば内部プレイリストとして選択
+  useEffect(() => {
+    const playlistId = route.params?.playlistId;
+    if (playlistId) {
+      // PlaylistIDが渡された場合、内部プレイリストモードに設定
+      setPlaylistSourceType('internal');
+      // Note: PlaylistSelectorがfetchしてくれるので、ここでは設定のみ
+    }
+  }, [route.params?.playlistId]);
 
   // ハッシュタグをパース
   const parseHashtags = (text: string): string[] => {
@@ -190,8 +210,14 @@ export const CreatePostScreen: React.FC = () => {
     if (!user) return 'ログインが必要です';
 
     if (postType === 'playlist') {
-      if (!playlistUrl.trim()) return 'プレイリストURLを入力してください';
-      if (!playlistTitle.trim()) return 'プレイリスト名を入力してください';
+      if (playlistSourceType === 'external') {
+        if (!playlistUrl.trim()) return 'プレイリストURLを入力してください';
+        if (!playlistTitle.trim()) return 'プレイリスト名を入力してください';
+      } else if (playlistSourceType === 'internal') {
+        if (!selectedPlaylist) return 'プレイリストを選択してください';
+        // 非公開プレイリストのチェック
+        if (!selectedPlaylist.isPublic) return 'PRIVATE_PLAYLIST';
+      }
     } else if (postType === 'track') {
       if (!trackTitle.trim()) return '曲名を入力してください';
       if (!trackArtist.trim()) return 'アーティスト名を入力してください';
@@ -210,8 +236,48 @@ export const CreatePostScreen: React.FC = () => {
     const validationError = validatePost();
     if (validationError) {
       console.log('バリデーションエラー:', validationError);
-      window.alert(`入力エラー: ${validationError}`);
-      return;
+
+      // 非公開プレイリストの特別処理
+      if (validationError === 'PRIVATE_PLAYLIST' && selectedPlaylist && user) {
+        const confirmed = window.confirm(
+          `このプレイリストは非公開です。\n投稿するには公開に変更する必要があります。\n\n公開に変更して投稿しますか？`
+        );
+
+        if (confirmed) {
+          try {
+            // プレイリストを公開に変更
+            const { data, error } = await updatePlaylist(
+              selectedPlaylist.id,
+              user.id,
+              { isPublic: true }
+            );
+
+            if (error) {
+              console.error('プレイリスト更新エラー:', error);
+              window.alert('エラー: プレイリストを公開に変更できませんでした');
+              return;
+            }
+
+            if (data) {
+              // selectedPlaylistの状態を更新
+              setSelectedPlaylist(data);
+              console.log('プレイリストを公開に変更しました。投稿を続行します。');
+              // 投稿処理を続行（この後のコードで処理される）
+            }
+          } catch (error) {
+            console.error('プレイリスト更新エラー:', error);
+            window.alert('エラー: プレイリストを公開に変更できませんでした');
+            return;
+          }
+        } else {
+          // ユーザーが公開変更を拒否
+          return;
+        }
+      } else {
+        // その他のバリデーションエラー
+        window.alert(`入力エラー: ${validationError}`);
+        return;
+      }
     }
 
     if (!user) {
@@ -228,12 +294,17 @@ export const CreatePostScreen: React.FC = () => {
         contentType: postType,
         caption: caption.trim() || undefined,
         hashtags: parseHashtags(hashtags),
-        // プレイリスト
-        playlistUrl: postType === 'playlist' ? playlistUrl.trim() : undefined,
-        playlistTitle: postType === 'playlist' ? playlistTitle.trim() : undefined,
-        playlistThumbnail: postType === 'playlist' ? playlistThumbnail || undefined : undefined,
-        playlistTrackCount: postType === 'playlist' ? playlistTrackCount : undefined,
-        playlistService: postType === 'playlist' ? playlistService : undefined,
+        // 外部プレイリスト
+        playlistUrl: postType === 'playlist' && playlistSourceType === 'external' ? playlistUrl.trim() : undefined,
+        // 内部・外部プレイリスト共通
+        internalPlaylistId: postType === 'playlist' && playlistSourceType === 'internal' && selectedPlaylist ? selectedPlaylist.id : undefined,
+        playlistTitle: postType === 'playlist' && playlistSourceType === 'internal' && selectedPlaylist ? selectedPlaylist.title :
+                       postType === 'playlist' && playlistSourceType === 'external' ? playlistTitle.trim() : undefined,
+        playlistThumbnail: postType === 'playlist' && playlistSourceType === 'internal' && selectedPlaylist ? selectedPlaylist.coverImageUrl || undefined :
+                           postType === 'playlist' && playlistSourceType === 'external' ? playlistThumbnail || undefined : undefined,
+        playlistTrackCount: postType === 'playlist' && playlistSourceType === 'internal' && selectedPlaylist ? selectedPlaylist.tracksCount :
+                            postType === 'playlist' && playlistSourceType === 'external' ? playlistTrackCount : undefined,
+        playlistService: postType === 'playlist' && playlistSourceType === 'external' ? playlistService : undefined,
         // トラック
         trackTitle: postType === 'track' ? trackTitle.trim() : undefined,
         trackArtist: postType === 'track' ? trackArtist.trim() : undefined,
@@ -328,55 +399,91 @@ export const CreatePostScreen: React.FC = () => {
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>プレイリスト情報</Text>
 
-            <Text style={styles.inputLabel}>サービス</Text>
-            <View style={styles.serviceSelector}>
-              {(['spotify', 'apple_music', 'youtube_music'] as const).map((service) => (
-                <TouchableOpacity
-                  key={service}
-                  style={[styles.serviceButton, playlistService === service && styles.serviceButtonActive]}
-                  onPress={() => setPlaylistService(service)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.serviceButtonText, playlistService === service && styles.serviceButtonTextActive]}>
-                    {service === 'spotify' ? 'Spotify' : service === 'apple_music' ? 'Apple Music' : 'YouTube Music'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* プレイリストソース選択タブ */}
+            <View style={styles.playlistSourceTabs}>
+              <TouchableOpacity
+                style={[styles.sourceTab, playlistSourceType === 'internal' && styles.sourceTabActive]}
+                onPress={() => setPlaylistSourceType('internal')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.sourceTabText, playlistSourceType === 'internal' && styles.sourceTabTextActive]}>
+                  自分のプレイリスト
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sourceTab, playlistSourceType === 'external' && styles.sourceTabActive]}
+                onPress={() => setPlaylistSourceType('external')}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.sourceTabText, playlistSourceType === 'external' && styles.sourceTabTextActive]}>
+                  外部リンク
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>プレイリストURL *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例: https://open.spotify.com/playlist/..."
-              placeholderTextColor="#808080"
-              value={playlistUrl}
-              onChangeText={setPlaylistUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            {/* 内部プレイリスト選択 */}
+            {playlistSourceType === 'internal' && user && (
+              <PlaylistSelector
+                userId={user.id}
+                selectedPlaylist={selectedPlaylist}
+                onSelect={setSelectedPlaylist}
+              />
+            )}
 
-            {/* プレビュー取得ボタン */}
-            <TouchableOpacity
-              style={[styles.previewButton, isFetchingMetadata && styles.previewButtonDisabled]}
-              onPress={handleFetchPlaylistMetadata}
-              disabled={isFetchingMetadata || !playlistUrl.trim()}
-              activeOpacity={0.7}
-            >
-              {isFetchingMetadata ? (
-                <ActivityIndicator size="small" color={Colors.white} />
-              ) : (
-                <Text style={styles.previewButtonText}>📥 URLからプレビューを取得</Text>
-              )}
-            </TouchableOpacity>
+            {/* 外部プレイリスト入力 */}
+            {playlistSourceType === 'external' && (
+              <>
+                <Text style={styles.inputLabel}>サービス</Text>
+                <View style={styles.serviceSelector}>
+                  {(['spotify', 'apple_music', 'youtube_music'] as const).map((service) => (
+                    <TouchableOpacity
+                      key={service}
+                      style={[styles.serviceButton, playlistService === service && styles.serviceButtonActive]}
+                      onPress={() => setPlaylistService(service)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.serviceButtonText, playlistService === service && styles.serviceButtonTextActive]}>
+                        {service === 'spotify' ? 'Spotify' : service === 'apple_music' ? 'Apple Music' : 'YouTube Music'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            <Text style={styles.inputLabel}>プレイリスト名 *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例: お気に入りの曲たち"
-              placeholderTextColor="#808080"
-              value={playlistTitle}
-              onChangeText={setPlaylistTitle}
-            />
+                <Text style={styles.inputLabel}>プレイリストURL *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="例: https://open.spotify.com/playlist/..."
+                  placeholderTextColor="#808080"
+                  value={playlistUrl}
+                  onChangeText={setPlaylistUrl}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+
+                {/* プレビュー取得ボタン */}
+                <TouchableOpacity
+                  style={[styles.previewButton, isFetchingMetadata && styles.previewButtonDisabled]}
+                  onPress={handleFetchPlaylistMetadata}
+                  disabled={isFetchingMetadata || !playlistUrl.trim()}
+                  activeOpacity={0.7}
+                >
+                  {isFetchingMetadata ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Text style={styles.previewButtonText}>📥 URLからプレビューを取得</Text>
+                  )}
+                </TouchableOpacity>
+
+                <Text style={styles.inputLabel}>プレイリスト名 *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="例: お気に入りの曲たち"
+                  placeholderTextColor="#808080"
+                  value={playlistTitle}
+                  onChangeText={setPlaylistTitle}
+                />
+              </>
+            )}
           </View>
         )}
 
@@ -450,7 +557,7 @@ export const CreatePostScreen: React.FC = () => {
             placeholderTextColor="#808080"
             value={caption}
             onChangeText={setCaption}
-            multiline
+            multiline={true}
             numberOfLines={4}
             textAlignVertical="top"
           />
@@ -553,6 +660,33 @@ const styles = StyleSheet.create({
     color: '#808080',
   },
   typeButtonTextActive: {
+    color: Colors.white,
+    fontWeight: Typography.fontWeight.semiBold,
+  },
+  playlistSourceTabs: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.base,
+  },
+  sourceTab: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+  },
+  sourceTabActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sourceTabText: {
+    fontSize: Typography.fontSize.sm,
+    color: '#808080',
+  },
+  sourceTabTextActive: {
     color: Colors.white,
     fontWeight: Typography.fontWeight.semiBold,
   },

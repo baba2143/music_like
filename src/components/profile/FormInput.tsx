@@ -14,6 +14,15 @@ export const FormInput: React.FC<FormInputProps> = ({
   error,
   ...inputProps
 }) => {
+  // デバッグ: props の値と型を確認
+  React.useEffect(() => {
+    console.log(`=== FormInput Debug: ${label} ===`);
+    Object.keys(inputProps).forEach(key => {
+      const value = (inputProps as any)[key];
+      console.log(`  ${key}: type=${typeof value}, value=${JSON.stringify(value)}`);
+    });
+  }, [label, inputProps]);
+
   return (
     <View style={styles.container}>
       {/* ラベル */}

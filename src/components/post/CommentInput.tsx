@@ -36,7 +36,7 @@ export const CommentInput: React.FC<CommentInputProps> = ({
           placeholderTextColor="#808080"
           value={text}
           onChangeText={setText}
-          multiline
+          multiline={true}
           maxLength={500}
         />
 

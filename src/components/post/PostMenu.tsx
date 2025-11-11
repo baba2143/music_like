@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   menuContainer: {
     backgroundColor: '#1A1A1A',
     borderRadius: 12,
-    width: '100%',
+    flex: 1,
     maxWidth: 300,
     overflow: 'hidden',
     borderWidth: 1,

@@ -16,7 +16,7 @@ import { MessageBubble } from '../../components/message/MessageBubble';
 import { Message, User } from '../../types/models';
 import { Colors, Spacing, Typography } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
-import { RootStackParamList } from '../../navigation/RootNavigator';
+import { MessagesStackParamList } from '../../navigation/RootNavigator';
 import {
   getMessages,
   sendMessage,
@@ -27,8 +27,8 @@ import {
 import { getOrCreateConversation } from '../../services/conversationService';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-type ChatScreenRouteProp = RouteProp<RootStackParamList, 'Chat'>;
-type ChatScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type ChatScreenRouteProp = RouteProp<MessagesStackParamList, 'Chat'>;
+type ChatScreenNavigationProp = NativeStackNavigationProp<MessagesStackParamList>;
 
 export const ChatScreen: React.FC = () => {
   const { user } = useAuth();
@@ -273,7 +273,7 @@ export const ChatScreen: React.FC = () => {
           onChangeText={setInputText}
           placeholder="メッセージを入力..."
           placeholderTextColor="#666666"
-          multiline
+          multiline={true}
           maxLength={1000}
         />
         <TouchableOpacity

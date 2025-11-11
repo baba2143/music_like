@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   playlistThumbnail: {
-    width: '100%',
+    flex: 1,
     height: 180,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
